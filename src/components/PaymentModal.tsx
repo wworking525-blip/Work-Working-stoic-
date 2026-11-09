@@ -140,13 +140,39 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     e.preventDefault();
     setErrorMessage(null);
 
+    setIsProcessing(true);
+
+    try {
+      // 1. Check if live Stripe is configured on the backend
+      const res = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tier: selectedTier,
+          cycle: billingCycle,
+          email: currentUser.email || 'customer@medstudy.org',
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // If live Stripe session URL was created, redirect directly to Stripe
+        if (data.mode === 'live' && data.url) {
+          window.location.href = data.url;
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Stripe checkout session check:', err);
+    }
+
+    // 2. Fallback to sandbox simulation when STRIPE_SECRET_KEY is not configured
     const cleanCard = cardNumber.replace(/\s+/g, '');
     if (cleanCard.length < 15) {
+      setIsProcessing(false);
       setErrorMessage('Please enter a valid 16-digit card number.');
       return;
     }
-
-    setIsProcessing(true);
 
     setTimeout(async () => {
       if (cleanCard === '4000000000000002') {
@@ -167,7 +193,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         isPro: true,
         tier: selectedTier,
         subscriptionExpiry: billingCycle === 'yearly' ? '2027-11-06' : '2026-12-06',
-        points: currentUser.points + 500,
+        points: (currentUser.points || 0) + 500,
       };
 
       saveUserToStorage(updatedUser);

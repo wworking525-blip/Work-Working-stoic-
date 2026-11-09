@@ -532,6 +532,59 @@ You assist medical students with 3D structural layers, mechanical assembly, rota
   }
 });
 
+// Stripe Checkout Session Integration
+app.post('/api/stripe/create-checkout-session', async (req: Request, res: Response) => {
+  try {
+    const { tier = 'pro', cycle = 'monthly', email = 'user@example.com' } = req.body;
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+
+    if (!stripeKey) {
+      return res.status(200).json({
+        mode: 'simulated',
+        message: 'No STRIPE_SECRET_KEY found in .env. Operating in test sandbox mode.',
+        url: null,
+      });
+    }
+
+    const { default: Stripe } = await import('stripe');
+    const stripe = new Stripe(stripeKey);
+
+    const priceAmount = tier === 'institutional'
+      ? (cycle === 'yearly' ? 29900 : 2900)
+      : (cycle === 'yearly' ? 12000 : 1400);
+
+    const productName = tier === 'institutional' ? 'MedStudy Institutional Pass' : 'MedStudy PRO Clinician';
+
+    const session = await stripe.checkout.sessions.create({
+      customer_email: email,
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: productName,
+              description: 'Access to 3D Anatomy Knolling, unlimited USMLE MCQs, and cloud sync.',
+            },
+            unit_amount: priceAmount,
+            recurring: {
+              interval: cycle === 'yearly' ? 'year' : 'month',
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
+      success_url: `${req.headers.origin || 'http://localhost:3000'}/?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.headers.origin || 'http://localhost:3000'}/?payment=cancelled`,
+    });
+
+    return res.json({ mode: 'live', url: session.url });
+  } catch (err: any) {
+    console.error('Stripe checkout error:', err);
+    return res.status(500).json({ error: err?.message || 'Failed to initialize payment gateway.' });
+  }
+});
+
 // Europe PMC / PubMed Biomedical Research Proxy
 app.get('/api/literature/search', async (req: Request, res: Response) => {
   const query = ((req.query.q as string) || (req.query.query as string) || 'human anatomy').trim();

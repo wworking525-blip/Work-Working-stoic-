@@ -27,6 +27,25 @@ export default function App() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [canvaModalOpen, setCanvaModalOpen] = useState(false);
 
+  // Check for successful Stripe checkout redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'success') {
+      const updatedUser: UserProfile = {
+        ...currentUser,
+        isPro: true,
+        tier: 'pro',
+        subscriptionExpiry: '2027-11-06',
+        points: (currentUser.points || 0) + 500,
+      };
+      setCurrentUser(updatedUser);
+      saveUserToStorage(updatedUser);
+      syncUserProfileToFirestore(updatedUser).catch(console.warn);
+      // Clean query params from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   // Test persistent Firestore connection on startup & sync user
   useEffect(() => {
     testConnection().catch(console.error);
