@@ -6,7 +6,7 @@
  * when the external Gemini API key has quota limits or permission issues.
  */
 
-import { normalizeText, verifyEvidenceInText } from './textParser';
+import { normalizeText, verifyEvidenceInText } from './textParser.ts';
 
 export interface GeneratedMCQ {
   q: string;
