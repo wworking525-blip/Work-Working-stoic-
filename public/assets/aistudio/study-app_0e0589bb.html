@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MedStudy</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root{--bg:#0f1720;--pan:#17212c;--line:#2a3846;--tx:#e6edf3;--mu:#92a3b5;--ac:#4fd1c5;--rd:#ef5b5b;--ok:#3ecf8e}
+@media(prefers-color-scheme:light){:root{--bg:#f3f6f9;--pan:#fff;--line:#d5dde6;--tx:#14202c;--mu:#566678;--ac:#0b8f84;--rd:#d63a3a;--ok:#12805a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:20}
+h1{font-size:19px;margin:0;font-weight:700;letter-spacing:-.01em}
+nav{display:flex;gap:4px;overflow-x:auto;flex:1}
+nav button{background:none;border:0;color:var(--mu);padding:8px 12px;font:inherit;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+nav button.on{color:var(--tx);border-color:var(--ac)}
+main{max-width:980px;margin:0 auto;padding:16px}
+.pan{background:var(--pan);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+button,input,textarea,select{font:inherit;color:var(--tx)}
+.btn{background:var(--ac);color:#04201d;border:0;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer}
+.btn.alt{background:none;color:var(--tx);border:1px solid var(--line)}
+.btn:disabled{opacity:.5}
+input[type=text],input[type=password],textarea,select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+textarea{min-height:90px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mu{color:var(--mu);font-size:14px}
+.sec{display:none}.sec.on{display:block}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+#grid button{background:var(--pan);border:1px solid var(--line);border-radius:10px;padding:18px 8px;cursor:pointer;font-weight:600;font-size:15px}
+#grid button:hover{border-color:var(--ac)}
+#grid i{display:block;font-style:normal;font-size:30px;margin-bottom:6px}
+#view{position:relative;height:62vh;min-height:360px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 40%,#22313f,#0c131a)}
+#view canvas{display:block;width:100%;height:100%}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lb{position:absolute;transform:translate(-50%,-130%);font-size:12px;background:rgba(10,18,26,.85);color:#e6edf3;border:1px solid #3a4b5c;border-radius:4px;padding:1px 6px;white-space:nowrap}
+.lb.sel{border-color:var(--rd);color:#fff;background:#7a1f1f}
+#info{position:absolute;left:10px;bottom:10px;background:rgba(10,18,26,.88);color:#e6edf3;padding:6px 10px;border-radius:8px;font-size:14px}
+.q{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--pan)}
+.q .o{display:block;width:100%;text-align:left;background:none;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:6px;cursor:pointer}
+.q .o.right{border-color:var(--ok);background:rgba(62,207,142,.15)}
+.q .o.wrong{border-color:var(--rd);background:rgba(239,91,91,.15)}
+.q .ex{display:none;margin-top:8px;font-size:14px}
+.q.done .ex{display:block}
+.tag{font-size:12px;border:1px solid var(--line);border-radius:99px;padding:1px 8px;color:var(--mu)}
+.ver{color:var(--ok)}.unver{color:var(--rd)}
+.out{white-space:pre-wrap;max-width:75ch}
+a{color:var(--ac)}
+.lb{white-space:normal;max-width:210px;text-align:center}.lb small{display:none;font-size:11px;color:#9fe8dd;margin-top:1px}.lb.fn small,.lb.sel small{display:block}#info{max-width:92%}
+</style>
+</head>
+<body>
+<header>
+  <h1>MedStudy</h1>
+  <nav id="nav">
+    <button data-t="anat" class="on">3D Anatomy</button>
+    <button data-t="tutor">Tutor</button>
+    <button data-t="mcq">MCQs</button>
+    <button data-t="papers">Papers</button>
+  </nav>
+  <button class="btn alt" id="keyBtn">API key</button>
+</header>
+<main>
+  <div class="pan" id="material" style="display:none">
+    <div class="row">
+      <input type="file" id="file" accept=".pdf,.txt,.md" style="max-width:260px">
+      <span class="mu" id="srcName">No material yet. Upload a PDF or text file, or paste text below.</span>
+    </div>
+    <textarea id="paste" placeholder="Or paste your notes or textbook text here"></textarea>
+  </div>
+
+  <!-- ANATOMY -->
+  <section class="sec on" id="anat">
+    <div id="grid"></div>
+    <div id="viewWrap" style="display:none">
+      <div class="row" style="margin-bottom:8px">
+        <button class="btn alt" id="back">Back to systems</button>
+        <strong id="sysName"></strong>
+        <button class="btn alt" id="xp" style="margin-left:auto">Explode / Assemble</button><label class="btn alt">Load .glb model<input type="file" id="glb" accept=".glb,.gltf" hidden></label>
+      </div>
+      <div id="view"><div id="labels"></div><div id="info">Drag to rotate. Scroll or pinch to zoom in for finer labels. Tap a part to select it.</div></div>
+      <p class="mu">Zoom out to see the assembled body. Zoom in and the parts separate, showing names, then functions. Built-in shapes are simplified; for photo-real parts load a real .glb (for example an export from Z-Anatomy) and every named part gets its own label automatically.</p>
+    </div>
+  </section>
+
+  <!-- TUTOR -->
+  <section class="sec" id="tutor">
+    <div class="pan">
+      <div class="row">
+        <input type="text" id="tq" placeholder="Optional: ask about one topic from your material" style="flex:1;min-width:200px">
+        <button class="btn" id="tgo">Explain from first principles</button>
+      </div>
+    </div>
+    <div class="pan out" id="tout">Upload material above, then tap the button.</div>
+  </section>
+
+  <!-- MCQ -->
+  <section class="sec" id="mcq">
+    <div class="pan row">
+      <select id="lvl" style="width:auto"><option value="mixed">Mixed levels</option><option>easy</option><option>medium</option><option>hard</option></select>
+      <button class="btn" id="mgo">Generate 50 new MCQs</button>
+      <span class="mu" id="score"></span>
+    </div>
+    <div id="qs"></div>
+  </section>
+
+  <!-- PAPERS -->
+  <section class="sec" id="papers">
+    <div class="pan row">
+      <input type="text" id="topic" value="human anatomy" style="flex:1;min-width:180px">
+      <button class="btn" id="pgo">Get new papers</button>
+    </div>
+    <div class="mu" style="margin-bottom:10px">Papers come from Europe PMC (open access, with abstracts). Gemini only rewrites the abstract in simple words.</div>
+    <div id="plist"></div>
+  </section>
+</main>
+
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const MODEL='gemini-2.5-flash';
+/* PUT YOUR GEMINI API KEY BETWEEN THE QUOTES BELOW (get one free at aistudio.google.com/apikey) */
+const API_KEY='PASTE_YOUR_GEMINI_API_KEY_HERE';
+let KEY=API_KEY.startsWith('PASTE_')?'':API_KEY;
+try{KEY=localStorage.getItem('gkey')||KEY}catch(e){}
+
+/* ---------- tabs ---------- */
+$('#nav').onclick=e=>{const t=e.target.dataset.t;if(!t)return;
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b===e.target));
+  document.querySelectorAll('.sec').forEach(s=>s.classList.toggle('on',s.id===t));
+  $('#material').style.display=(t==='tutor'||t==='mcq')?'block':'none';
+  if(t==='anat'&&viewOpen)resize();};
+$('#keyBtn').onclick=()=>{const k=prompt('Paste your Gemini API key (from aistudio.google.com/apikey). It is stored only in this browser.',KEY);
+  if(k!==null){KEY=k.trim();try{localStorage.setItem('gkey',KEY)}catch(e){}}};
+
+/* ---------- Gemini ---------- */
+async function gem(prompt,{json=false,schema=null,temp=0.7,system=''}={}){
+  if(!KEY){$('#keyBtn').click();if(!KEY)throw new Error('Add your Gemini API key first.');}
+  const body={contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:temp,maxOutputTokens:16000}};
+  if(system)body.systemInstruction={parts:[{text:system}]};
+  if(json){body.generationConfig.responseMimeType='application/json';if(schema)body.generationConfig.responseSchema=schema;}
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`,
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.error?.message||'Gemini request failed');
+  const t=d.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('');
+  if(!t)throw new Error('Gemini returned no text. Try again.');
+  return t;
+}
+
+/* ---------- study material ---------- */
+let SRC={name:'',text:''};
+async function readFile(f){
+  if(/\.pdf$/i.test(f.name)){
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;let out='';
+    for(let i=1;i<=pdf.numPages;i++){const c=await (await pdf.getPage(i)).getTextContent();out+=c.items.map(x=>x.str).join(' ')+'\n';}
+    return out;}
+  return f.text();
+}
+$('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+  $('#srcName').textContent='Reading '+f.name+'...';
+  try{SRC={name:f.name,text:await readFile(f)};$('#paste').value='';
+    $('#srcName').textContent=`${f.name}: ${SRC.text.length.toLocaleString()} characters ready`;
+    if(SRC.text.trim().length<200)$('#srcName').textContent+=' (very little text found. Scanned PDFs need OCR.)';
+  }catch(err){$('#srcName').textContent='Could not read file: '+err.message;}};
+$('#paste').oninput=e=>{SRC={name:'pasted text',text:e.target.value};$('#srcName').textContent=`Pasted text: ${SRC.text.length.toLocaleString()} characters`;};
+const material=()=>{if(SRC.text.trim().length<50)throw new Error('Upload or paste your material first.');return SRC.text.slice(0,400000);};
+const busy=(b,on,txt)=>{b.disabled=on;if(txt)b.textContent=txt;};
+
+/* ---------- tutor ---------- */
+$('#tgo').onclick=async()=>{const b=$('#tgo'),o=$('#tout'),old=b.textContent;
+  try{const m=material();busy(b,true,'Explaining...');o.textContent='Working...';
+    const q=$('#tq').value.trim();
+    o.textContent=await gem(`MATERIAL:\n"""${m}"""\n\n${q?'Topic to explain: '+q:'Explain the whole material, section by section.'}`,{temp:.4,
+      system:`You are a patient tutor. Use ONLY the material given. If something is not in the material, say "not covered in your material". Teach by first principles: 1) the simple core idea, 2) break it into its smallest parts and define each in plain words, 3) rebuild step by step showing how the parts connect, 4) one everyday analogy, 5) a 3-line recap. Use short sentences. Plain text only, no markdown symbols.`});
+  }catch(e){o.textContent='Error: '+e.message}busy(b,false,old);};
+
+/* ---------- MCQs ---------- */
+const SCHEMA={type:'ARRAY',items:{type:'OBJECT',properties:{q:{type:'STRING'},options:{type:'ARRAY',items:{type:'STRING'}},answer:{type:'INTEGER'},level:{type:'STRING'},why:{type:'STRING'},evidence:{type:'STRING'}},required:['q','options','answer','level','why','evidence']}};
+const norm=s=>s.toLowerCase().replace(/\s+/g,' ').replace(/[^a-z0-9 ]/g,'');
+let right=0,total=0;
+async function batch(m,i,lvl){
+  const seed=Math.random().toString(36).slice(2,8);
+  return JSON.parse(await gem(`MATERIAL:\n"""${m}"""\n\nWrite 25 multiple-choice questions (seed ${seed}, batch ${i+1} of 2).
+Rules: use ONLY facts stated in the material. Exactly 4 options each. "answer" is the 0-based index of the correct option. "level" is easy, medium or hard${lvl==='mixed'?' (mix them about equally)':'; use only '+lvl}. "why" explains the answer in one or two simple sentences. "evidence" is a short EXACT quote (under 25 words) copied word for word from the material that proves the answer. ${i?'Focus on the second half of the material and on less obvious details.':'Focus on the first half of the material.'} Vary the position of the correct answer and avoid repeating common questions.`,{json:true,schema:SCHEMA,temp:1}));
+}
+$('#mgo').onclick=async()=>{const b=$('#mgo'),old=b.textContent,box=$('#qs');
+  try{const m=material();busy(b,true,'Generating...');box.innerHTML='<div class="pan mu">Writing 50 questions. This can take up to a minute.</div>';
+    const lvl=$('#lvl').value;const res=await Promise.all([batch(m,0,lvl),batch(m,1,lvl)]);
+    const qs=res.flat().filter(x=>x.options?.length===4);right=0;total=0;$('#score').textContent='';
+    const nm=norm(m);box.innerHTML='';
+    qs.forEach((x,n)=>{const ver=nm.includes(norm(x.evidence||'x'));
+      const d=document.createElement('div');d.className='q';
+      d.innerHTML=`<div class="row"><b>${n+1}.</b><span class="tag">${esc(x.level)}</span></div><div style="margin-top:4px">${esc(x.q)}</div>`;
+      x.options.forEach((t,k)=>{const o=document.createElement('button');o.className='o';o.textContent=String.fromCharCode(65+k)+'. '+t;
+        o.onclick=()=>{if(d.classList.contains('done'))return;d.classList.add('done');total++;
+          d.querySelectorAll('.o').forEach((e,j)=>{if(j===x.answer)e.classList.add('right');});
+          if(k===x.answer)right++;else o.classList.add('wrong');
+          $('#score').textContent=`Score: ${right}/${total}`;};d.appendChild(o);});
+      const ex=document.createElement('div');ex.className='ex';
+      ex.innerHTML=`<div>${esc(x.why)}</div><div class="mu">From your material: "${esc(x.evidence)}" <span class="${ver?'ver':'unver'}">${ver?'verified in your text':'could not verify, double-check'}</span></div>`;
+      d.appendChild(ex);box.appendChild(d);});
+    if(!qs.length)box.innerHTML='<div class="pan">No valid questions came back. Try again.</div>';
+  }catch(e){box.innerHTML=`<div class="pan unver">Error: ${esc(e.message)}</div>`}busy(b,false,old);};
+
+/* ---------- research papers (Europe PMC) ---------- */
+const plain=h=>new DOMParser().parseFromString(h||'','text/html').body.textContent;
+$('#pgo').onclick=async()=>{const b=$('#pgo'),old=b.textContent,box=$('#plist');busy(b,true,'Searching...');
+  try{const t=$('#topic').value.trim()||'human anatomy';
+    const q=encodeURIComponent(`(${t}) AND OPEN_ACCESS:y AND HAS_ABSTRACT:y AND SRC:MED AND PUB_YEAR:[2020 TO 2026]`);
+    const page=1+Math.floor(Math.random()*15);
+    const r=await fetch(`https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${q}&format=json&resultType=core&pageSize=30&page=${page}`);
+    const d=await r.json();let list=(d.resultList?.result||[]).filter(p=>p.abstractText&&p.title);
+    list=list.sort(()=>Math.random()-.5).slice(0,3);
+    box.innerHTML=list.length?'':'<div class="pan">No papers found. Try a broader topic.</div>';
+    list.forEach(p=>{const abs=plain(p.abstractText);const d2=document.createElement('div');d2.className='pan';
+      const link=p.doi?`https://doi.org/${p.doi}`:`https://europepmc.org/article/MED/${p.pmid}`;
+      d2.innerHTML=`<b>${esc(plain(p.title))}</b><div class="mu">${esc(p.authorString||'')} · ${esc(p.journalTitle||'')} ${esc(p.pubYear||'')}</div>
+      <div class="row" style="margin:6px 0"><a href="${link}" target="_blank" rel="noopener">Open original</a><a href="https://europepmc.org/article/MED/${p.pmid}" target="_blank" rel="noopener">Europe PMC</a></div>
+      <details><summary>Abstract</summary><p class="out">${esc(abs)}</p></details>
+      <button class="btn" style="margin-top:8px">Explain simply</button><div class="out" style="margin-top:8px"></div>`;
+      const btn=d2.querySelector('button'),out=d2.querySelector('.out:last-child');
+      btn.onclick=async()=>{busy(btn,true,'Explaining...');
+        try{out.textContent=await gem(`ABSTRACT:\n"""${abs}"""`,{temp:.3,system:'Explain this abstract to a medical student in simple words using ONLY the abstract. Give: the question asked, how they studied it, what they found, why it matters, one limitation if stated. If a detail is not in the abstract, say so. Plain text, no markdown symbols.'})}
+        catch(e){out.textContent='Error: '+e.message}busy(btn,false,'Explain simply');};
+      box.appendChild(d2);});
+  }catch(e){box.innerHTML=`<div class="pan unver">Error: ${esc(e.message)}</div>`}busy(b,false,old);};
+
+/* ---------- 3D anatomy ---------- */
+const SYS=[['Skeletal','🦴'],['Muscular','💪'],['Cardiovascular','🫀'],['Digestive','🍽️'],['Endocrine','🧪'],['Nervous','🧠'],['Respiratory','🫁'],['Immune / Lymphatic','🛡️'],['Urinary','💧'],['Female Reproductive','♀'],['Male Reproductive','♂'],['Integumentary','🧍']];
+$('#grid').innerHTML=SYS.map(([n,i])=>`<button data-n="${n}"><i>${i}</i>${n}</button>`).join('');
+let viewOpen=false,renderer,scene,camera,controls,group,labels=[],parts=[],selected=null,started=false;
+const LABEL_K=14; // a label appears when camera distance < part size x LABEL_K
+function init(){
+  const el=$('#view');renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));el.prepend(renderer.domElement);
+  scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(40,1,.01,500);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x334455,1.3));
+  const dl=new THREE.DirectionalLight(0xffffff,1.6);dl.position.set(3,5,4);scene.add(dl);
+  controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.screenSpacePanning=true;
+  let down=null;renderer.domElement.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  renderer.domElement.addEventListener('pointerup',e=>{if(down&&Math.hypot(e.clientX-down[0],e.clientY-down[1])<5)pick(e);});
+  addEventListener('resize',resize);loop();
+}
+function resize(){const el=$('#view');renderer.setSize(el.clientWidth,el.clientHeight);camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();}
+const MT=(c,o=1)=>new THREE.MeshStandardMaterial({color:c,roughness:.5,transparent:o<1,opacity:o});
+const SP=new THREE.SphereGeometry(1,24,16),CY=new THREE.CylinderGeometry(1,1,1,16),BX=new THREE.BoxGeometry(1,1,1);
+const M=(g,c,sc=[1,1,1],o=1)=>{const m=new THREE.Mesh(g,MT(c,o));m.scale.set(...sc);return m;};
+const at=(m,x,y,z,rx=0,ry=0,rz=0)=>{m.position.set(x,y,z);m.rotation.set(rx,ry,rz);return m;};
+const G=(...a)=>{const g=new THREE.Group();a.forEach(x=>g.add(x));return g;};
+const TB=(p,r,c,n=60)=>M(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(p.map(a=>new THREE.Vector3(...a))),n,r,8),c);
+const CAP=(r,l)=>new THREE.CapsuleGeometry(r,l,6,12);
+const BONE=0xe9dfb8,MUS=0xc9484a,ORG=0xe59a9a,S2=[-1,1],Z=Math.PI/2;
+const brainG=()=>{const g=new THREE.IcosahedronGeometry(.5,4),p=g.attributes.position;
+  for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),k=1+.06*Math.sin(x*20)*Math.sin(y*18+z*10);p.setXYZ(i,x*k,y*k,z*k);}
+  g.computeVertexNormals();return g;};
+const F={
+ skull:()=>G(M(SP,BONE,[.4,.45,.45],.6),at(M(BX,BONE,[.34,.2,.3]),0,-.42,.12),...S2.map(s=>at(M(SP,0x2a2a2a,[.09,.09,.05]),s*.14,-.02,.4))),
+ brain:()=>G(M(brainG(),0xe3a3ae,[.7,.6,.8]),at(M(SP,0xd08b97,[.16,.1,.15]),0,-.22,-.28),at(M(CY,0xe8c4ca,[.05,.25,.05]),0,-.4,-.08)),
+ spine:()=>{const g=G();for(let i=0;i<24;i++){const k=.6+i/60,z=-Math.sin(i/23*Math.PI*1.5)*.1;
+   g.add(at(M(CY,BONE,[.1*k,.07,.1*k]),0,-i*.1,z));g.add(at(M(BX,BONE,[.03,.07,.12*k]),0,-i*.1-.02,z-.1*k));}
+   g.add(at(M(new THREE.ConeGeometry(.12,.25,6),BONE),0,-2.45,-.05,Math.PI,0,0));return g;},
+ ribs:()=>{const g=G();for(let i=0;i<12;i++)for(const s of S2){const w=.28+Math.sin((i+1.5)/13*Math.PI)*.2,y=-i*.12;
+   g.add(TB([[0,y,-.25],[s*w*.8,y-.02,-.15],[s*w,y-.07,.1],[s*w*.6,y-.14,.3],[s*.05,y-.2,.36]],.013,BONE,24));}
+   g.add(at(M(BX,BONE,[.1,1.1,.03]),0,-.6,.38));return g;},
+ girdle:()=>G(...S2.map(s=>G(TB([[s*.1,0,.1],[s*.35,.04,.05],[s*.7,0,-.02]],.025,BONE,20),at(M(new THREE.ConeGeometry(.3,.5,3),BONE,[1,1,.1]),s*.5,-.35,-.25,Math.PI,0,0)))),
+ pelvis:()=>G(...S2.map(s=>at(M(new THREE.TorusGeometry(.32,.08,8,20,Math.PI*1.25),BONE,[1,1,.5]),s*.25,.05,0,0,0,s>0?.3:-Math.PI*.25-.3)),at(M(new THREE.ConeGeometry(.17,.4,8),BONE),0,-.1,-.2,Math.PI,0,0)),
+ femur:s=>G(M(CY,BONE,[.05,1.55,.05]),at(M(SP,BONE,[.09,.09,.09]),-s*.2,.82,0),at(M(CY,BONE,[.03,.2,.03]),-s*.1,.76,0,0,0,s*.9),at(M(SP,BONE,[.1,.08,.1]),0,-.82,0)),
+ tibia:s=>G(M(CY,BONE,[.05,1.4,.05]),at(M(CY,BONE,[.025,1.3,.025]),s*.1,0,-.03),at(M(CY,BONE,[.11,.04,.1]),0,.7,0)),
+ humerus:s=>G(at(M(CY,BONE,[.045,1.05,.045]),0,0,0,0,0,Z),at(M(SP,BONE,[.09,.09,.09]),-s*.55,0,0)),
+ forearm:()=>G(at(M(CY,BONE,[.035,.9,.035]),0,0,.03,0,0,Z),at(M(CY,BONE,[.028,.88,.028]),0,0,-.03,0,0,Z)),
+ heart:()=>G(at(M(SP,0xb83a3a,[.2,.27,.2]),0,0,0,0,0,.4),TB([[0,.2,0],[0,.42,0],[-.15,.46,.05],[-.2,.2,-.05]],.05,0xd04a4a,20),TB([[.12,.2,0],[.12,.55,0]],.045,0x3b6fb6,10)),
+ lungs:()=>G(...S2.map(s=>at(M(SP,ORG,[.28,.5,.2]),s*.3,-.05,0)),M(CY,0xdde3e8,[.04,.5,.04]),...S2.map(s=>TB([[0,.15,0],[s*.1,0,0],[s*.22,-.2,0]],.025,0xdde3e8,12))),
+ liver:()=>G(M(SP,0x8a4b2d,[.42,.2,.28]),at(M(SP,0x4f8a3a,[.06,.1,.05]),.12,-.18,.1)),
+ stomach:()=>G(at(M(SP,0xd9777a,[.2,.3,.15]),0,0,0,0,0,.6),TB([[-.1,.5,0],[-.08,.3,0],[-.05,.15,0]],.03,0xd9a0a0,12)),
+ kidneys:()=>G(...S2.map(s=>G(at(M(SP,0x9b3d3d,[.1,.17,.08]),s*.25,0,0),TB([[s*.2,-.1,0],[s*.1,-.4,0]],.012,0xe8d070,10)))),
+ small:()=>TB(Array.from({length:60},(_,i)=>[Math.sin(i*.9)*.3+Math.sin(i*.3)*.1,(i/59-.5)*.6+Math.cos(i*1.7)*.05,Math.cos(i*.9)*.1]),.035,0xe6a0a0,240),
+ large:()=>TB([[-.3,-.3,0],[-.3,.25,0],[.3,.25,0],[.3,-.3,0],[.15,-.4,0]],.06,0xcf8f6d,60),
+ pecs:()=>G(...S2.map(s=>at(M(SP,MUS,[.3,.22,.1],.7),s*.3,1.45,.22,0,0,s*.2))),
+ abs:()=>G(...S2.flatMap(s=>[0,1,2,3].map(j=>at(M(BX,MUS,[.17,.2,.07],.7),s*.1,.75-j*.24,.24)))),
+ delts:()=>G(...S2.map(s=>at(M(SP,MUS,[.2,.22,.2],.7),s*.62,1.85,0))),
+ armM:()=>G(...S2.flatMap(s=>[[1.35,.75],[2.3,.65]].map(([x,l])=>at(M(CAP(.1,l),MUS,[1,1,1],.7),s*x,1.85,0,0,0,Z)))),
+ quads:()=>G(...S2.map(s=>at(M(CAP(.17,.95),MUS,[1,1,1],.7),s*.3,-1.15,.04))),
+ calves:()=>G(...S2.map(s=>at(M(CAP(.11,.8),MUS,[1,1,1],.7),s*.3,-2.55,-.03)))
+};
+function demo(){const g=G();
+  const add=(n,fn,f,h,fa)=>{const p=f;p.name=n;p.userData={fn,home:new THREE.Vector3(...h),far:new THREE.Vector3(...(fa||h))};g.add(p);};
+  add('Skull','Protects the brain and shapes the face; holds the eyes, ears, nose and jaw.',F.skull(),[0,2.6,0],[1.8,2.9,0]);
+  add('Brain','Control centre: thought, memory, movement, senses and body regulation.',F.brain(),[0,2.65,0],[-1.8,2.9,0]);
+  add('Vertebral column','24 stacked vertebrae protect the spinal cord, support the body and allow bending.',F.spine(),[0,2.15,-.2],[-2.7,2.6,0]);
+  add('Rib cage and sternum','Shields the heart and lungs and helps breathing by moving up and down.',F.ribs(),[0,1.75,0],[-1.5,2.3,0]);
+  add('Clavicles and scapulae','Shoulder girdle: connects the arms to the trunk and allows arm movement.',F.girdle(),[0,1.95,0],[1.5,2.35,0]);
+  add('Pelvis','Supports the spine, carries body weight to the legs and protects pelvic organs.',F.pelvis(),[0,-.35,0],[1.2,.1,0]);
+  for(const s of S2){const n=s<0?'right':'left';
+    add(`Femur (${n})`,'Thigh bone, the longest and strongest bone; bears weight and powers walking.',F.femur(s),[s*.3,-1.15,0],[s*2.7,-1.5,0]);
+    add(`Tibia and fibula (${n})`,'Shin bones: the tibia bears weight, the fibula stabilises the ankle.',F.tibia(s),[s*.3,-2.6,0],[s*2,-2.4,0]);
+    add(`Humerus (${n})`,'Upper arm bone; forms the shoulder and elbow joints.',F.humerus(s),[s*1.2,1.85,0],[s*1,3.4,0]);
+    add(`Radius and ulna (${n})`,'Forearm bones; allow the elbow to bend and the palm to rotate.',F.forearm(),[s*2.2,1.85,0],[s*2.4,3.4,0]);}
+  add('Heart','Muscular pump: sends oxygen-poor blood to the lungs and oxygen-rich blood to the body.',F.heart(),[.1,1.2,.08],[1.5,1.5,0]);
+  add('Lungs and bronchi','Take in oxygen and remove carbon dioxide with every breath.',F.lungs(),[0,1.2,0],[2.3,.4,0]);
+  add('Liver','Cleans the blood, makes bile for digestion and stores energy.',F.liver(),[-.2,.55,.05],[-1.5,-.1,0]);
+  add('Stomach','Mixes food with acid and enzymes to start protein digestion.',F.stomach(),[.2,.6,0],[-1.4,-.9,0]);
+  add('Kidneys','Filter the blood, make urine and balance water, salts and blood pressure.',F.kidneys(),[0,.3,-.2],[2.1,-.7,0]);
+  add('Small intestine','Digests food and absorbs most nutrients into the blood.',F.small(),[0,-.05,.1],[-1.2,-1.8,0]);
+  add('Large intestine','Absorbs water and salts and forms stool.',F.large(),[0,-.05,.05],[1.2,-1.8,0]);
+  add('Pectoralis major','Chest muscle: pulls the arm forward and across the body, as in pushing.',F.pecs(),[0,0,0]);
+  add('Rectus abdominis','The six-pack: bends the trunk forward and keeps the core stable.',F.abs(),[0,0,0]);
+  add('Deltoid','Shoulder muscle: lifts the arm out to the side, forward and back.',F.delts(),[0,0,0]);
+  add('Biceps, triceps and forearm muscles','Bend and straighten the elbow, and move the wrist and fingers.',F.armM(),[0,0,0]);
+  add('Quadriceps femoris','Front thigh muscles: straighten the knee for standing, walking and jumping.',F.quads(),[0,0,0]);
+  add('Gastrocnemius (calf)','Calf muscle: lifts the heel for walking, running and standing on tiptoe.',F.calves(),[0,0,0]);
+  return g;}
+function build(obj){
+  if(group)scene.remove(group);labels.forEach(l=>l.el.remove());labels=[];parts=[];selected=null;group=obj;scene.add(group);
+  let r=group;while(r.children.length===1)r=r.children[0];const kids=[...r.children];
+  if(!kids[0]?.userData.home){ // loaded model: fit it, and push every part outward when zooming in
+    const b=new THREE.Box3().setFromObject(group),sz=b.getSize(new THREE.Vector3()),c=b.getCenter(new THREE.Vector3()),s=6.4/Math.max(sz.x,sz.y,sz.z);
+    group.scale.setScalar(s);group.position.copy(c.multiplyScalar(-s));
+    kids.forEach(k=>{k.userData.home=k.position.clone();k.userData.far=k.position.clone().multiplyScalar(1.6);});}
+  kids.forEach(k=>{if(!k.name)return;const el=document.createElement('div');el.className='lb';el.innerHTML='<b></b><small></small>';
+    el.firstChild.textContent=k.name.replace(/[_.]+/g,' ').trim();el.lastChild.textContent=k.userData.fn||'';el.style.display='none';
+    $('#labels').appendChild(el);k.userData.label=el;labels.push({k,el,c:new THREE.Vector3()});parts.push(k);});
+  camera.position.set(0,.3,1.5*Math.max(9.5,8/camera.aspect));controls.target.set(0,0,0);controls.update();
+}
+function pick(e){const r=renderer.domElement.getBoundingClientRect(),v=new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);
+  const rc=new THREE.Raycaster();rc.setFromCamera(v,camera);const h=rc.intersectObjects(parts,true)[0];
+  const glow=(o,x)=>o.traverse(m=>m.material?.emissive?.setHex(x));
+  if(selected){glow(selected,0);selected.userData.label.classList.remove('sel');}
+  let o=h?.object;while(o&&!parts.includes(o))o=o.parent;selected=o||null;
+  if(selected){glow(selected,0x551111);selected.userData.label.classList.add('sel');$('#info').textContent=selected.userData.label.firstChild.textContent+(selected.userData.fn?': '+selected.userData.fn:'');}
+  else $('#info').textContent='Zoom out: assembled body. Zoom in: parts separate with names. Zoom closer: functions. Tap a part.';}
+const tmp=new THREE.Vector3();
+const ss=(a,b,x)=>{x=Math.min(1,Math.max(0,(x-a)/(b-a)));return x*x*(3-2*x)};
+const bx=new THREE.Box3(),sv=new THREE.Vector3();let XT=0,goal=null;
+function loop(){requestAnimationFrame(loop);if(!viewOpen)return;
+  const fit=Math.max(9.5,8/camera.aspect);controls.minDistance=fit*.2;controls.maxDistance=fit*1.7;
+  let dist=camera.position.distanceTo(controls.target);
+  if(goal){const nd=dist+(goal*fit-dist)*.07;camera.position.sub(controls.target).setLength(nd).add(controls.target);dist=nd;if(Math.abs(nd-goal*fit)<.05)goal=null;}
+  XT=ss(1.45*fit,fit,dist);
+  parts.forEach(k=>k.position.lerpVectors(k.userData.home,k.userData.far,XT));
+  controls.update();renderer.render(scene,camera);
+  const w=renderer.domElement.clientWidth,h=renderer.domElement.clientHeight;
+  labels.forEach(l=>{bx.setFromObject(l.k);bx.getCenter(l.c);const sz=bx.getSize(sv).length()+.3,d=camera.position.distanceTo(l.c);
+    tmp.copy(l.c).project(camera);const sel=l.k===selected;
+    const show=(sel||(XT>.45&&d<sz*LABEL_K))&&tmp.z<1&&Math.abs(tmp.x)<1&&Math.abs(tmp.y)<1;
+    l.el.style.display=show?'block':'none';l.el.classList.toggle('fn',d<sz*LABEL_K*.45);
+    if(show){l.el.style.left=(tmp.x*.5+.5)*w+'px';l.el.style.top=(-tmp.y*.5+.5)*h+'px';}});}
+$('#xp').onclick=()=>{goal=XT>.5?1.5:1;};
+function open(name){$('#grid').style.display='none';$('#viewWrap').style.display='block';$('#sysName').textContent=name+' system';
+  viewOpen=true;if(!started){init();started=true;}resize();build(demo());}
+$('#grid').onclick=e=>{const b=e.target.closest('button');if(b)open(b.dataset.n);};
+$('#back').onclick=()=>{viewOpen=false;$('#viewWrap').style.display='none';$('#grid').style.display='grid';};
+$('#glb').onchange=e=>{const f=e.target.files[0];if(!f)return;const url=URL.createObjectURL(f);
+  new GLTFLoader().load(url,g=>{build(g.scene);$('#info').textContent='Loaded '+f.name;},undefined,()=>{$('#info').textContent='Could not read that model file.';});};
+</script>
+</body>
+</html>

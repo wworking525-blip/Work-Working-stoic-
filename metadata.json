@@ -1,0 +1,6 @@
+{
+  "name": "MedStudy - 3D Anatomy & NotebookLM Medical Tutor",
+  "description": "Interactive 3D human anatomy explorer with exploded mechanical assembly views, NotebookLM-style medical study guide, high-yield MCQ generator, Europe PMC biomedical research, and Gemini medical AI tutor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

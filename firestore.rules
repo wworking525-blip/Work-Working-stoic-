@@ -1,0 +1,121 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Validation for User Profile
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'points', 'streak']) &&
+        data.keys().hasOnly(['uid', 'name', 'email', 'points', 'streak', 'lastActiveDate', 'isPro', 'tier', 'subscriptionExpiry', 'quizzesTaken', 'averageScore', 'updatedAt']) &&
+        data.uid == userId &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 150 &&
+        data.points is number && data.points >= 0 &&
+        data.streak is number && data.streak >= 0 &&
+        (!('isPro' in data) || data.isPro is bool) &&
+        (!('tier' in data) || (data.tier in ['free', 'pro', 'institutional'])) &&
+        (!('quizzesTaken' in data) || (data.quizzesTaken is number && data.quizzesTaken >= 0)) &&
+        (!('averageScore' in data) || (data.averageScore is number && data.averageScore >= 0));
+    }
+
+    // Validation for Study Notes
+    function isValidStudyNote(data, userId) {
+      return data.keys().hasAll(['userId', 'title', 'content', 'createdAt']) &&
+        data.keys().hasOnly(['userId', 'title', 'content', 'systemId', 'source', 'createdAt', 'updatedAt']) &&
+        data.userId == userId &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+        data.content is string && data.content.size() <= 50000 &&
+        (!('systemId' in data) || (data.systemId is string && data.systemId.size() <= 50)) &&
+        (!('source' in data) || (data.source is string && data.source.size() <= 50));
+    }
+
+    // Validation for Quiz Results
+    function isValidQuizResult(data, userId) {
+      return data.keys().hasAll(['userId', 'systemName', 'score', 'total', 'percentage', 'timestamp']) &&
+        data.keys().hasOnly(['userId', 'systemName', 'score', 'total', 'percentage', 'timestamp']) &&
+        data.userId == userId &&
+        data.systemName is string && data.systemName.size() <= 100 &&
+        data.score is number && data.score >= 0 &&
+        data.total is number && data.total > 0 &&
+        data.percentage is number && data.percentage >= 0;
+    }
+
+    // Validation for Chat Messages
+    function isValidChatMessage(data, userId) {
+      return data.keys().hasAll(['userId', 'role', 'text', 'timestamp']) &&
+        data.keys().hasOnly(['userId', 'role', 'text', 'systemId', 'timestamp']) &&
+        data.userId == userId &&
+        (data.role in ['user', 'model']) &&
+        data.text is string && data.text.size() <= 10000 &&
+        (!('systemId' in data) || (data.systemId is string && data.systemId.size() <= 50));
+    }
+
+    // Validation for Anatomy Bookmarks
+    function isValidBookmark(data, userId) {
+      return data.keys().hasAll(['userId', 'partId', 'partName', 'systemId', 'timestamp']) &&
+        data.keys().hasOnly(['userId', 'partId', 'partName', 'systemId', 'notes', 'timestamp']) &&
+        data.userId == userId &&
+        data.partId is string && data.partId.size() <= 100 &&
+        data.partName is string && data.partName.size() <= 100 &&
+        data.systemId is string && data.systemId.size() <= 50 &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000));
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUserProfile(request.resource.data, userId);
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUserProfile(request.resource.data, userId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if false;
+
+      // Subcollection: Notes
+      match /notes/{noteId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(noteId) && isValidStudyNote(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidId(noteId) && isValidStudyNote(request.resource.data, userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId) && isValidId(noteId);
+      }
+
+      // Subcollection: Quizzes
+      match /quizzes/{quizId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(quizId) && isValidQuizResult(request.resource.data, userId);
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(quizId);
+      }
+
+      // Subcollection: Chat History
+      match /chatHistory/{messageId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(messageId) && isValidChatMessage(request.resource.data, userId);
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(messageId);
+      }
+
+      // Subcollection: Bookmarks
+      match /bookmarks/{bookmarkId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(bookmarkId) && isValidBookmark(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidId(bookmarkId) && isValidBookmark(request.resource.data, userId);
+        allow delete: if isOwner(userId) && isValidId(bookmarkId);
+      }
+    }
+  }
+}

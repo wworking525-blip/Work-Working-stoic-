@@ -1,0 +1,102 @@
+{
+  "entities": {
+    "userProfile": {
+      "title": "User Profile",
+      "description": "Stores user account details, learning points, streak, subscription tier, and performance statistics.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique auth user ID" },
+        "name": { "type": "string", "description": "User display or student name", "maxLength": 100 },
+        "email": { "type": "string", "description": "User email address", "maxLength": 150 },
+        "points": { "type": "number", "description": "Cumulative gamification learning points" },
+        "streak": { "type": "number", "description": "Consecutive days study streak" },
+        "lastActiveDate": { "type": "string", "description": "ISO date of last study session" },
+        "isPro": { "type": "boolean", "description": "Whether user has unlocked STOIC PRO Clinician" },
+        "tier": { "type": "string", "enum": ["free", "pro", "institutional"], "description": "Account subscription tier" },
+        "subscriptionExpiry": { "type": "string", "description": "ISO date string of subscription expiration" },
+        "quizzesTaken": { "type": "number", "description": "Total number of completed USMLE MCQ sets" },
+        "averageScore": { "type": "number", "description": "Average quiz accuracy percentage" },
+        "updatedAt": { "type": "string", "description": "Timestamp of last profile update" }
+      },
+      "required": ["uid", "name", "email", "points", "streak"]
+    },
+    "studyNote": {
+      "title": "Study Note",
+      "description": "Clinical study notes, lecture summaries, or Google Keep synchronized notes.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Auth UID of the student" },
+        "title": { "type": "string", "description": "Title of the clinical note", "maxLength": 200 },
+        "content": { "type": "string", "description": "Markdown or raw text contents of the clinical study note", "maxLength": 50000 },
+        "systemId": { "type": "string", "description": "Associated anatomical system identifier", "maxLength": 50 },
+        "source": { "type": "string", "description": "Source origin of the note (e.g. manual, google_notes, pubmed)", "maxLength": 50 },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Last modified timestamp" }
+      },
+      "required": ["userId", "title", "content", "createdAt"]
+    },
+    "quizResult": {
+      "title": "Quiz Result",
+      "description": "Recorded USMLE MCQ practice performance and answer histories.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Auth UID of the student" },
+        "systemName": { "type": "string", "description": "Anatomical system tested", "maxLength": 100 },
+        "score": { "type": "number", "description": "Number of correct answers" },
+        "total": { "type": "number", "description": "Total number of questions" },
+        "percentage": { "type": "number", "description": "Score percentage" },
+        "timestamp": { "type": "string", "description": "Timestamp of quiz completion" }
+      },
+      "required": ["userId", "systemName", "score", "total", "percentage", "timestamp"]
+    },
+    "chatMessage": {
+      "title": "Chat Message",
+      "description": "Saved conversational turns from STOIC Chat Box sessions.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Auth UID of the student" },
+        "role": { "type": "string", "enum": ["user", "model"], "description": "Role of the message sender" },
+        "text": { "type": "string", "description": "Text body of the conversation", "maxLength": 10000 },
+        "systemId": { "type": "string", "description": "Current anatomical context during the chat", "maxLength": 50 },
+        "timestamp": { "type": "string", "description": "Timestamp message was sent" }
+      },
+      "required": ["userId", "role", "text", "timestamp"]
+    },
+    "anatomyBookmark": {
+      "title": "Anatomy Bookmark",
+      "description": "Saved 3D parts, knolling pin labels, or clinical bookmarks.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Auth UID of the student" },
+        "partId": { "type": "string", "description": "Anatomical part ID", "maxLength": 100 },
+        "partName": { "type": "string", "description": "Human readable organ/bone name", "maxLength": 100 },
+        "systemId": { "type": "string", "description": "Anatomical system ID", "maxLength": 50 },
+        "notes": { "type": "string", "description": "Custom study memo attached to the 3D pin", "maxLength": 1000 },
+        "timestamp": { "type": "string", "description": "Timestamp bookmark was added" }
+      },
+      "required": ["userId", "partId", "partName", "systemId", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "userProfile",
+      "description": "User profile and persistent academic records"
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": "studyNote",
+      "description": "User specific study notes and summaries"
+    },
+    "/users/{userId}/quizzes/{quizId}": {
+      "schema": "quizResult",
+      "description": "User history of completed MCQ tests"
+    },
+    "/users/{userId}/chatHistory/{messageId}": {
+      "schema": "chatMessage",
+      "description": "STOIC Chat Box conversation logs"
+    },
+    "/users/{userId}/bookmarks/{bookmarkId}": {
+      "schema": "anatomyBookmark",
+      "description": "Saved 3D anatomical parts and clinical notes"
+    }
+  }
+}
