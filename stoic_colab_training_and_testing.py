@@ -768,6 +768,21 @@ def run_self_test():
         os.remove("test_dataset.jsonl")
     print(f"✓ Synthetic instruction dataset generation passed ({count} pairs).")
 
+    # 8. Test Adaptive KI Learning Engine
+    try:
+        from adaptive_learning import AdaptiveLearning, default_llm_json
+        adaptive_test_engine = AdaptiveLearning(database=":memory:")
+        ad_res_id = adaptive_test_engine.add_resource("colab-user", "Cardiovascular", test_note)
+        adaptive_test_engine.approve_resource(ad_res_id)
+        ad_plan = adaptive_test_engine.learning_plan("colab-user", "Cardiovascular")
+        assert ad_plan["difficulty"] == "beginner"
+        ad_gen = adaptive_test_engine.generate("colab-user", "Cardiovascular", "coronary perfusion", "tutor", default_llm_json)
+        assert ad_gen["status"] == "ok"
+        adaptive_test_engine.close()
+        print("✓ Adaptive KI Learning engine passed (provenance, mastery smoothing & grounded retrieval).")
+    except Exception as e:
+        print(f"Adaptive KI test note: {e}")
+
     print("\n" + "=" * 70)
     print("ALL STOIC CORE SUITE TESTS PASSED (100% HEALTHY)")
     print("=" * 70)

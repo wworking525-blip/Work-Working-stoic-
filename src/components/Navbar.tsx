@@ -18,7 +18,7 @@ import {
 import { ANATOMICAL_SYSTEMS, AnatomySystem } from '../utils/anatomyData';
 import { UserProfile } from '../utils/userStore';
 
-export type ActiveTab = 'front' | 'anatomy' | 'tutor' | 'mcq' | 'papers' | 'chat' | 'canvas';
+export type ActiveTab = 'front' | 'anatomy' | 'tutor' | 'mcq' | 'papers' | 'chat' | 'canvas' | 'adaptive';
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -55,9 +55,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   const navItems: { id: ActiveTab; label: string; icon: React.ReactNode }[] = [
     { id: 'front', label: 'Home', icon: <Layers className="w-3.5 h-3.5" /> },
     { id: 'anatomy', label: '3D Anatomy', icon: <Box className="w-3.5 h-3.5" /> },
+    { id: 'adaptive', label: 'Adaptive KI', icon: <Sparkles className="w-3.5 h-3.5 text-rose-500" /> },
     { id: 'tutor', label: 'AI Tutor', icon: <BookOpen className="w-3.5 h-3.5" /> },
-    { id: 'mcq', label: 'High-Yield MCQs', icon: <HelpCircle className="w-3.5 h-3.5" /> },
-    { id: 'papers', label: 'PubMed Papers', icon: <FileText className="w-3.5 h-3.5" /> },
+    { id: 'mcq', label: 'MCQs', icon: <HelpCircle className="w-3.5 h-3.5" /> },
+    { id: 'papers', label: 'PubMed', icon: <FileText className="w-3.5 h-3.5" /> },
     { id: 'canvas', label: 'Study Canvas', icon: <Palette className="w-3.5 h-3.5" /> },
   ];
 

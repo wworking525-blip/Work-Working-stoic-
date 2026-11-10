@@ -43,9 +43,22 @@ export const AnatomyExplorer: React.FC<AnatomyExplorerProps> = ({
   const [isolatedPartId, setIsolatedPartId] = useState<string | null>(null);
   const [explodedProgress, setExplodedProgress] = useState<number>(0);
   const [renderMode, setRenderMode] = useState<'realistic' | 'xray' | 'wireframe'>('realistic');
+  const [adaptiveLabels, setAdaptiveLabels] = useState<Array<{ mesh_name: string; label: string; description: string; source_id: string }>>([]);
   const [statusMessage, setStatusMessage] = useState<string>(
     'All anatomical systems loaded successfully.'
   );
+
+  // Fetch adaptive labels for 3D model
+  React.useEffect(() => {
+    fetch('/api/adaptive/anatomy-labels?userId=usr-1&modelId=human-body')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.labels)) {
+          setAdaptiveLabels(data.labels);
+        }
+      })
+      .catch((err) => console.warn('Could not load adaptive anatomy labels:', err));
+  }, []);
 
   // Active layers state
   const [activeLayers, setActiveLayers] = useState<Record<AnatomicalLayerKey, boolean>>({
@@ -431,6 +444,19 @@ export const AnatomyExplorer: React.FC<AnatomyExplorerProps> = ({
                     <p className="text-zinc-700 text-xs">
                       {selectedPart.description}
                     </p>
+
+                    {/* Matched Adaptive KI Grounded Label */}
+                    {adaptiveLabels.find((l) => l.mesh_name.toLowerCase() === selectedPart.id.toLowerCase() || selectedPart.name.toLowerCase().includes(l.mesh_name.toLowerCase())) && (
+                      <div className="bg-rose-50 p-2.5 rounded-lg border border-rose-200 text-[11px] text-rose-950 space-y-1">
+                        <div className="flex items-center gap-1 font-bold text-rose-800">
+                          <Sparkles className="w-3 h-3 text-rose-600" />
+                          <span>Adaptive KI Verified Label: {adaptiveLabels.find((l) => l.mesh_name.toLowerCase() === selectedPart.id.toLowerCase() || selectedPart.name.toLowerCase().includes(l.mesh_name.toLowerCase()))?.label}</span>
+                        </div>
+                        <p className="italic text-rose-900 leading-snug">
+                          {adaptiveLabels.find((l) => l.mesh_name.toLowerCase() === selectedPart.id.toLowerCase() || selectedPart.name.toLowerCase().includes(l.mesh_name.toLowerCase()))?.description}
+                        </p>
+                      </div>
+                    )}
 
                     {selectedPart.highYieldFact && (
                       <div className="bg-white p-2 rounded border border-zinc-200 text-[11px] text-zinc-800">
