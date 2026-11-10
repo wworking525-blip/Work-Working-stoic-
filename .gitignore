@@ -7,3 +7,6 @@ coverage/
 .env*
 !.env.example
 .tempmediaStorage/
+__pycache__/
+*.pyc
+learning.db

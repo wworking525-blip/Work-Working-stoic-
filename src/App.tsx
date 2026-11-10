@@ -11,6 +11,7 @@ import { GoogleNotesModal } from './components/GoogleNotesModal';
 import { PaymentModal } from './components/PaymentModal';
 import { CanvaModal } from './components/CanvaModal';
 import { StudyCanvasWhiteboard } from './components/StudyCanvasWhiteboard';
+import { AdaptiveKILearning } from './components/AdaptiveKILearning';
 import { ANATOMICAL_SYSTEMS, AnatomySystem } from './utils/anatomyData';
 import { UserProfile, loadUserFromStorage, saveUserToStorage } from './utils/userStore';
 import { CanvasLmsCourse } from './utils/canvaIntegration';
@@ -160,6 +161,7 @@ export default function App() {
         <div className={activeTab === 'front' ? 'block' : 'hidden'}>
           <FrontHub
             user={currentUser}
+            onNavigate={(tab) => setActiveTab(tab)}
             onNavigateToAnatomy={() => setActiveTab('anatomy')}
             onNavigateToTutor={() => setActiveTab('tutor')}
             onNavigateToMCQ={() => setActiveTab('mcq')}
@@ -182,6 +184,14 @@ export default function App() {
             onSelectSystemForMCQ={handleSelectSystemForMCQ}
             onAskTutorWithTopic={handleAskTutorWithTopic}
             onOpenCanvasWhiteboard={() => setActiveTab('canvas')}
+          />
+        </div>
+
+        <div className={activeTab === 'adaptive' ? 'block' : 'hidden'}>
+          <AdaptiveKILearning
+            userId={currentUser.id || 'usr-1'}
+            onNavigateToAnatomy={() => setActiveTab('anatomy')}
+            onOpenWhiteboard={() => setActiveTab('canvas')}
           />
         </div>
 

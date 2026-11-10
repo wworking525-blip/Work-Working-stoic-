@@ -46,7 +46,9 @@ export const FrontHub: React.FC<FrontHubProps> = ({
   const handleNav = (tab: ActiveTab) => {
     if (onNavigate) {
       onNavigate(tab);
-    } else if (tab === 'anatomy') {
+      return;
+    }
+    if (tab === 'anatomy') {
       onNavigateToAnatomy?.();
     } else if (tab === 'tutor') {
       onNavigateToTutor?.();
@@ -59,6 +61,17 @@ export const FrontHub: React.FC<FrontHubProps> = ({
     }
   };
   const coreFeatures = [
+    {
+      id: 'adaptive',
+      title: 'Adaptive KI Learning',
+      category: 'Mastery & Difficulty Steered KI',
+      description:
+        'Continuous performance calibration, Bayesian mastery smoothing, reviewer-approved document provenance, and 3D review recommendations.',
+      badge: 'KI Learning Engine',
+      actionLabel: 'Launch Adaptive KI',
+      onAction: () => handleNav('adaptive'),
+      icon: Sparkles,
+    },
     {
       id: 'anatomy',
       title: '3D Human Anatomy Engine',
