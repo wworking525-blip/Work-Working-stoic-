@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { AnatomyPartDef, AnatomySystem } from '../utils/anatomyData';
 import { PROCEDURAL_PARTS } from '../utils/proceduralAnatomy';
+import { AntiGravityExplodedController } from '../utils/antiGravityEngine';
 import {
   RotateCw,
   Crosshair,
@@ -108,6 +109,7 @@ export const AnatomyCanvas3D = forwardRef<AnatomyCanvas3DHandle, AnatomyCanvas3D
     const meshWorldRadialDirRef = useRef<Map<THREE.Mesh, THREE.Vector3>>(new Map());
     const meshInitialMaterialsRef = useRef<Map<THREE.Mesh, THREE.Material | THREE.Material[]>>(new Map());
     const isolatedMeshRef = useRef<THREE.Mesh | null>(null);
+    const antiGravityControllerRef = useRef<AntiGravityExplodedController>(new AntiGravityExplodedController());
 
     // State
     const [isRotating, setIsRotating] = useState(false);
@@ -431,10 +433,17 @@ export const AnatomyCanvas3D = forwardRef<AnatomyCanvas3DHandle, AnatomyCanvas3D
       const resizeObserver = new ResizeObserver(handleResize);
       resizeObserver.observe(container);
 
-      // Animation loop
+      // Animation loop with Anti-Gravity camera glide support
       let animFrameId: number;
+      const clock = new THREE.Clock();
       const animate = () => {
         animFrameId = requestAnimationFrame(animate);
+        const dt = Math.min(clock.getDelta(), 0.05);
+
+        if (antiGravityControllerRef.current.cameraAnimating && cameraRef.current && controlsRef.current) {
+          antiGravityControllerRef.current.updateCameraGlide(cameraRef.current, controlsRef.current, dt);
+        }
+
         if (controlsRef.current) {
           controlsRef.current.autoRotate = isRotatingRef.current;
           controlsRef.current.update();
@@ -581,6 +590,21 @@ export const AnatomyCanvas3D = forwardRef<AnatomyCanvas3DHandle, AnatomyCanvas3D
             loadedCount += 1;
             setLoadedLayersCount(loadedCount);
 
+            // Register parts in Anti-Gravity controller
+            const partsToRegister = meshesRef.current.map((m) => {
+              const box = new THREE.Box3().setFromObject(m);
+              const center = new THREE.Vector3();
+              box.getCenter(center);
+              const size = new THREE.Vector3();
+              box.getSize(size);
+              return {
+                id: m.name || m.uuid,
+                center,
+                size,
+              };
+            });
+            antiGravityControllerRef.current.registerParts(partsToRegister);
+
             // Hide procedural fallback as soon as primary systems are active
             if (loadedCount >= 2 && proceduralGroupRef.current) {
               proceduralGroupRef.current.visible = false;
@@ -604,8 +628,9 @@ export const AnatomyCanvas3D = forwardRef<AnatomyCanvas3DHandle, AnatomyCanvas3D
       };
     }, [onStatusUpdate]);
 
-    // Handle Exploded View separation (clean outward translation)
+    // Handle Exploded View separation (clean outward translation with anti-gravity upward Y-bias)
     useEffect(() => {
+      const antiGravOffset = new THREE.Vector3();
       meshesRef.current.forEach((mesh) => {
         const origPos = meshInitialPositionsRef.current.get(mesh);
         if (!origPos) return;
@@ -613,14 +638,21 @@ export const AnatomyCanvas3D = forwardRef<AnatomyCanvas3DHandle, AnatomyCanvas3D
         if (explodedProgress <= 0.001) {
           mesh.position.copy(origPos);
         } else {
-          const radDir = meshWorldRadialDirRef.current.get(mesh) || new THREE.Vector3(1, 0, 0);
-          const layerId = (mesh.userData.layer as AnatomicalLayerKey) || 'skeleton';
+          const partKey = mesh.name || mesh.uuid;
+          const hasAntiGrav = antiGravityControllerRef.current.getOffset(partKey, explodedProgress, antiGravOffset);
 
-          // Multiplier by layer depth: muscles float furthest, viscera mid, skeleton core
-          const layerMul = layerId === 'muscles' ? 1.5 : layerId === 'organs' ? 1.0 : 0.55;
-          const separationDist = explodedProgress * 0.42 * layerMul;
+          if (hasAntiGrav) {
+            mesh.position.copy(origPos).add(antiGravOffset);
+          } else {
+            const radDir = meshWorldRadialDirRef.current.get(mesh) || new THREE.Vector3(1, 0, 0);
+            const layerId = (mesh.userData.layer as AnatomicalLayerKey) || 'skeleton';
 
-          mesh.position.copy(origPos).addScaledVector(radDir, separationDist);
+            // Multiplier by layer depth: muscles float furthest, viscera mid, skeleton core
+            const layerMul = layerId === 'muscles' ? 1.5 : layerId === 'organs' ? 1.0 : 0.55;
+            const separationDist = explodedProgress * 0.42 * layerMul;
+
+            mesh.position.copy(origPos).addScaledVector(radDir, separationDist);
+          }
         }
       });
     }, [explodedProgress]);
@@ -711,16 +743,20 @@ export const AnatomyCanvas3D = forwardRef<AnatomyCanvas3DHandle, AnatomyCanvas3D
       // 4. If an isolated structure is active, center and frame camera directly onto it
       if (targetIsolatedMesh && targetIsolatedMesh.visible) {
         const box = new THREE.Box3().setFromObject(targetIsolatedMesh);
-        if (!box.isEmpty() && controlsRef.current && cameraRef.current) {
+        if (!box.isEmpty() && cameraRef.current) {
           const center = box.getCenter(new THREE.Vector3());
           const size = box.getSize(new THREE.Vector3());
           const maxDim = Math.max(size.x, size.y, size.z);
-          const dist = Math.max(0.4, maxDim * 2.2);
 
-          controlsRef.current.target.copy(center);
-          cameraRef.current.position.set(center.x, center.y, center.z + dist);
-          controlsRef.current.update();
+          antiGravityControllerRef.current.beginIsolation(
+            targetIsolatedMesh.name || targetIsolatedMesh.uuid,
+            center,
+            maxDim,
+            cameraRef.current
+          );
         }
+      } else {
+        antiGravityControllerRef.current.resetIsolation();
       }
     }, [activeLayers, selectedPart, isolatedPartId, renderMode, cleanMeshName]);
 
