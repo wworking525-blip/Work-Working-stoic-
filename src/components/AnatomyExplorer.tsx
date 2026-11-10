@@ -1,5 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { AnatomySystem, AnatomyPartDef } from '../utils/anatomyData';
+import { defaultAnatomyData } from '../utils/human3dBodyData';
+import { SYSTEMS, SystemId } from '../utils/atlasData';
 import {
   AnatomyCanvas3D,
   AnatomyCanvas3DHandle,

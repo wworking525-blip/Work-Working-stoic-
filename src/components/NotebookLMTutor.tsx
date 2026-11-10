@@ -53,6 +53,7 @@ export const NotebookLMTutor: React.FC<NotebookLMTutorProps> = ({
   const [loading, setLoading] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [uploadedImage, setUploadedImage] = useState<{ base64: string; mimeType: string; name: string } | null>(null);
   const [qaResult, setQaResult] = useState<GroundedQAResult | null>(null);
   const [textOutput, setTextOutput] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -176,8 +177,23 @@ export const NotebookLMTutor: React.FC<NotebookLMTutorProps> = ({
     setError(null);
     const fileName = file.name;
     const isPdf = fileName.toLowerCase().endsWith('.pdf');
+    const isImage = /\.(jpe?g|png|webp|gif)$/i.test(fileName);
 
-    if (isPdf) {
+    if (isImage) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        setUploadedImage({
+          base64: result,
+          mimeType: file.type || 'image/jpeg',
+          name: fileName,
+        });
+        setSourceName(`Image: ${fileName}`);
+        setMaterial((prev) => (prev ? prev : `[Uploaded Multimodal Clinical Image: ${fileName}]`));
+        onUpdateMaterial?.(`[Uploaded Multimodal Clinical Image: ${fileName}]`, `Image: ${fileName}`);
+      };
+      reader.readAsDataURL(file);
+    } else if (isPdf) {
       setUploadingPdf(true);
       setUploadProgress('Reading PDF file...');
       setSourceName(`Processing: ${fileName}...`);
@@ -244,6 +260,8 @@ export const NotebookLMTutor: React.FC<NotebookLMTutorProps> = ({
         body: JSON.stringify({
           material,
           question: question.trim(),
+          imageBase64: uploadedImage?.base64,
+          imageMimeType: uploadedImage?.mimeType,
           apiKey: storedKey || undefined,
         }),
       });
@@ -436,7 +454,7 @@ export const NotebookLMTutor: React.FC<NotebookLMTutorProps> = ({
               type="file"
               ref={fileInputRef}
               onChange={handleFileUpload}
-              accept=".pdf,.txt,.md,.doc"
+              accept=".pdf,.txt,.md,.doc,.jpg,.jpeg,.png,.webp"
               className="hidden"
             />
 
@@ -449,7 +467,7 @@ export const NotebookLMTutor: React.FC<NotebookLMTutorProps> = ({
                 className="flex items-center justify-center gap-2 px-3 py-2.5 rounded bg-black text-white text-xs font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
               >
                 <Upload className="w-3.5 h-3.5" />
-                <span>{uploadingPdf ? (uploadProgress || 'Parsing PDF...') : 'Upload PDF / Text'}</span>
+                <span>{uploadingPdf ? (uploadProgress || 'Parsing PDF...') : 'Upload PDF / Image / Text'}</span>
               </button>
 
               <button

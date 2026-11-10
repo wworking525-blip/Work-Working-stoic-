@@ -29,6 +29,18 @@ const isProd = process.env.NODE_ENV === 'production';
 const PORT = 3000;
 
 const app = express();
+
+// Permissive CORS for mobile emulator (Android 10.0.2.2, iOS Simulator localhost, Expo dev client)
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-api-key');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json({ limit: '30mb' }));
 
 const ai = new GoogleGenAI({
@@ -267,17 +279,17 @@ app.post('/api/pdf/extract-text', async (req: Request, res: Response) => {
   }
 });
 
-// Grounded Medical Tutor Q&A with Strict Material Citing & Refusal
+// Grounded Medical Tutor Q&A with Strict Material Citing & Refusal (Multimodal PDF + Images)
 app.post('/api/gemini/tutor/qa', async (req: Request, res: Response) => {
-  const { material, question, apiKey } = req.body;
-  if (!material || typeof material !== 'string' || material.trim().length === 0) {
-    return res.status(400).json({ error: 'Please provide study material.' });
+  const { material, question, imageBase64, imageMimeType, apiKey } = req.body;
+  if ((!material || typeof material !== 'string' || material.trim().length === 0) && !imageBase64) {
+    return res.status(400).json({ error: 'Please provide study material or an uploaded image.' });
   }
   if (!question || typeof question !== 'string' || question.trim().length === 0) {
     return res.status(400).json({ error: 'Please provide a question.' });
   }
 
-  const trimmedMaterial = material.slice(0, 300000);
+  const trimmedMaterial = (material || '').slice(0, 300000);
   const cleanQuestion = question.trim();
 
   const activeAi = apiKey
@@ -290,16 +302,31 @@ app.post('/api/gemini/tutor/qa', async (req: Request, res: Response) => {
   try {
     const systemInstruction = `You are an AI Clinical Tutor with STRICT SOURCE GROUNDING.
 RULES:
-1. STRICT GROUNDING: Answer the question using ONLY the provided study material. Do NOT extrapolate or assume unstated facts.
-2. MISSING INFORMATION DIRECTIVE (CRITICAL): If the question cannot be answered from the provided material, you MUST set canBeAnswered: false, and your answer MUST state:
-"This question cannot be answered from the provided study material. The uploaded text does not contain information regarding [specific concept/topic]."
+1. STRICT GROUNDING: Answer the question using ONLY the provided study material and uploaded anatomical or clinical images. Do NOT extrapolate or assume unstated facts.
+2. MISSING INFORMATION DIRECTIVE (CRITICAL): If the question cannot be answered from the provided material or image, you MUST set canBeAnswered: false, and your answer MUST state:
+"This question cannot be answered from the provided study material. The uploaded text or image does not contain information regarding [specific concept/topic]."
 3. CITE SOURCES: For every factual claim, insert [Source 1], [Source 2].
-4. CITATIONS ARRAY: Provide exact verbatim quotes matching the provided material.`;
+4. CITATIONS ARRAY: Provide exact verbatim quotes matching the provided material or image observations.`;
 
-    const prompt = `STUDY MATERIAL:\n"""${trimmedMaterial}"""\n\nUSER QUESTION:\n${cleanQuestion}`;
+    const promptText = `STUDY MATERIAL:\n"""${trimmedMaterial}"""\n\nUSER QUESTION:\n${cleanQuestion}`;
+
+    let contents: any = promptText;
+    if (imageBase64 && typeof imageBase64 === 'string') {
+      const mime = imageMimeType || 'image/jpeg';
+      const cleanBase64 = imageBase64.replace(/^data:[^;]+;base64,/, '');
+      contents = [
+        { text: promptText },
+        {
+          inlineData: {
+            mimeType: mime,
+            data: cleanBase64,
+          },
+        },
+      ];
+    }
 
     const response = await generateWithModelFallback(activeAi, {
-      contents: prompt,
+      contents,
       config: {
         systemInstruction,
         temperature: 0.2,
@@ -442,14 +469,8 @@ app.post('/api/gemini/mcq', async (req: Request, res: Response) => {
   try {
     const systemInstruction = `You are an expert USMLE examination writer.
 Generate ${numQuestions} randomized multiple choice clinical vignette questions.
-For each question provide:
-- q: Clinical vignette
-- options: Exactly 4 distinct plausible options
-- answer: Correct index (0, 1, 2, or 3)
-- level: "easy" | "medium" | "hard" | "clinical"
-- why: Comprehensive mechanistic rationale
-- evidence: Exact sentence quote from material
-- pearl: High-yield board takeaway`;
+Follow the exact JSON schema requested: [{ question: "...", options: ["A", "B", "C", "D"], correct: "A", why: "...", evidence: "...", pearl: "..." }].
+Ensure correct is either the letter or text matching the correct option.`;
 
     const prompt = `SOURCE MATERIAL:\n"""${trimmedMaterial}"""\n\nGenerate ${numQuestions} distinct questions.`;
 
@@ -464,50 +485,64 @@ For each question provide:
           items: {
             type: Type.OBJECT,
             properties: {
+              question: { type: Type.STRING },
               q: { type: Type.STRING },
               options: { type: Type.ARRAY, items: { type: Type.STRING } },
+              correct: { type: Type.STRING },
               answer: { type: Type.INTEGER },
               level: { type: Type.STRING },
               why: { type: Type.STRING },
               evidence: { type: Type.STRING },
               pearl: { type: Type.STRING },
             },
-            required: ['q', 'options', 'answer', 'level', 'why', 'evidence'],
+            required: ['options'],
           },
         },
       },
     });
 
-    const parsed = JSON.parse(response.text || '{}');
-    let questionsList: any[] = [];
+    const parsed = JSON.parse(response.text || '[]');
+    let rawList: any[] = [];
     if (Array.isArray(parsed)) {
-      questionsList = parsed;
-    } else if (parsed.quizzes && Array.isArray(parsed.quizzes)) {
-      questionsList = parsed.quizzes.map((quiz: any, idx: number) => {
-        let answerIndex = 0;
-        if (typeof quiz.correct_answer === 'string') {
-          const foundIdx = quiz.options.findIndex(
-            (opt: string) =>
-              opt.trim().toLowerCase() === quiz.correct_answer.trim().toLowerCase()
-          );
-          answerIndex = foundIdx >= 0 ? foundIdx : 0;
-        } else if (typeof quiz.correct_answer === 'number') {
-          answerIndex = quiz.correct_answer;
-        }
-        return {
-          id: quiz.id || `q-${idx}`,
-          q: quiz.question || quiz.q,
-          options: quiz.options,
-          answer: answerIndex,
-          level: quiz.level || 'clinical',
-          why: quiz.why || `The correct answer is ${quiz.options[answerIndex] || quiz.correct_answer}.`,
-          evidence: quiz.evidence || trimmedMaterial.slice(0, 150),
-          pearl: quiz.pearl || 'High-yield board examination pearl.',
-        };
-      });
+      rawList = parsed;
     } else if (parsed.questions && Array.isArray(parsed.questions)) {
-      questionsList = parsed.questions;
+      rawList = parsed.questions;
+    } else if (parsed.quizzes && Array.isArray(parsed.quizzes)) {
+      rawList = parsed.quizzes;
     }
+
+    const questionsList = rawList.map((item: any, idx: number) => {
+      const qText = item.question || item.q || `Question ${idx + 1}`;
+      const opts = Array.isArray(item.options) ? item.options : ['Option A', 'Option B', 'Option C', 'Option D'];
+
+      let answerIdx = 0;
+      if (typeof item.answer === 'number' && item.answer >= 0 && item.answer < opts.length) {
+        answerIdx = item.answer;
+      } else if (typeof item.correct === 'string') {
+        const c = item.correct.trim().toUpperCase();
+        if (c === 'A') answerIdx = 0;
+        else if (c === 'B') answerIdx = 1;
+        else if (c === 'C') answerIdx = 2;
+        else if (c === 'D') answerIdx = 3;
+        else {
+          const found = opts.findIndex((o: string) => o.toLowerCase().trim() === item.correct.toLowerCase().trim());
+          answerIdx = found >= 0 ? found : 0;
+        }
+      }
+
+      return {
+        id: item.id || `q-${idx}`,
+        question: qText,
+        q: qText,
+        options: opts,
+        correct: ['A', 'B', 'C', 'D'][answerIdx] || 'A',
+        answer: answerIdx,
+        level: item.level || level || 'clinical',
+        why: item.why || `Option ${['A', 'B', 'C', 'D'][answerIdx]} is the correct clinical answer based on anatomical principles.`,
+        evidence: item.evidence || trimmedMaterial.slice(0, 150),
+        pearl: item.pearl || 'High-yield board examination pearl.',
+      };
+    });
 
     if (questionsList.length > 0) {
       return res.json({ questions: questionsList });
@@ -515,7 +550,11 @@ For each question provide:
     throw new Error('Empty questions');
   } catch {
     console.log('[MCQ Engine] Serving verified clinical board examination questions.');
-    const fallbackMCQs = generateMCQSet(trimmedMaterial, numQuestions, level, systemName);
+    const fallbackMCQs = generateMCQSet(trimmedMaterial, numQuestions, level, systemName).map((q: any) => ({
+      ...q,
+      question: q.question || q.q,
+      correct: ['A', 'B', 'C', 'D'][q.answer] || 'A',
+    }));
     return res.json({ questions: fallbackMCQs });
   }
 });
@@ -1056,7 +1095,7 @@ app.get('/api/adaptive/anatomy-labels', async (req: Request, res: Response) => {
   }
 });
 
-// Europe PMC / PubMed Biomedical Research Proxy
+// Europe PMC, NCBI PubMed, and arXiv Academic Literature Search
 app.get('/api/literature/search', async (req: Request, res: Response) => {
   const query = ((req.query.q as string) || (req.query.query as string) || 'human anatomy').trim();
   const source = (req.query.source as string) || 'all';
@@ -1064,6 +1103,63 @@ app.get('/api/literature/search', async (req: Request, res: Response) => {
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
 
   let queryString = `(${query}) AND HAS_ABSTRACT:y`;
+
+  if (source === 'arxiv') {
+    try {
+      const arxivQuery = encodeURIComponent(`all:${query}`);
+      const start = (page - 1) * pageSize;
+      const arxivUrl = `https://export.arxiv.org/api/query?search_query=${arxivQuery}&start=${start}&max_results=${pageSize}`;
+
+      const arxivRes = await fetch(arxivUrl, {
+        headers: { 'User-Agent': 'StoicClinicalAcademic/1.0 (mailto:admin@stoic.app)' },
+      });
+
+      if (!arxivRes.ok) {
+        // Fallback to Europe PMC / PubMed search if arXiv public API is rate-limited
+        console.warn(`arXiv rate-limited (${arxivRes.status}), falling back to PubMed/Europe PMC`);
+        queryString = `(${query}) AND OPEN_ACCESS:y AND HAS_ABSTRACT:y`;
+      } else {
+        const xml = await arxivRes.text();
+        const entries = xml.split('<entry>').slice(1);
+        const results = entries.map((entry, idx) => {
+          const titleMatch = entry.match(/<title>([\s\S]*?)<\/title>/);
+          const summaryMatch = entry.match(/<summary>([\s\S]*?)<\/summary>/);
+          const idMatch = entry.match(/<id>([\s\S]*?)<\/id>/);
+          const publishedMatch = entry.match(/<published>([\s\S]*?)<\/published>/);
+
+          const title = (titleMatch ? titleMatch[1] : `arXiv Study ${idx + 1}`).replace(/\s+/g, ' ').trim();
+          const abstract = (summaryMatch ? summaryMatch[1] : '').replace(/\s+/g, ' ').trim();
+          const fullUrl = idMatch ? idMatch[1].trim() : `https://arxiv.org/abs/${query}`;
+          const year = publishedMatch ? publishedMatch[1].slice(0, 4) : '2024';
+
+          return {
+            id: `arxiv-${idx}-${Date.now()}`,
+            pmid: null,
+            doi: null,
+            title,
+            authorString: 'arXiv Investigators',
+            journalTitle: 'arXiv Preprint Server (q-bio / cs.AI)',
+            pubYear: year,
+            abstractText: abstract,
+            isOpenAccess: true,
+            fullTextUrl: fullUrl,
+            sourceBadge: 'arXiv Open Access',
+          };
+        }).filter((p) => p.abstractText.length > 20);
+
+        if (results.length > 0) {
+          return res.json({
+            results,
+            hitCount: results.length,
+            source: 'arXiv Open Research',
+          });
+        }
+      }
+    } catch (err: any) {
+      console.warn('arXiv search error, falling back:', err?.message);
+      queryString = `(${query}) AND OPEN_ACCESS:y AND HAS_ABSTRACT:y`;
+    }
+  }
   if (source === 'pubmed') {
     queryString = `(${query}) AND SRC:MED AND HAS_ABSTRACT:y`;
   } else if (source === 'europepmc') {
