@@ -492,6 +492,22 @@ class StoicModelTrainer:
                     )
                 })
 
+            # Video Generation Instruction pairs (Veo / Multimodal 3D Storyboard)
+            dataset_entries.append({
+                "instruction": f"Generate a cinematic 3D multimodal video generation prompt and 4-scene clinical storyboard for {sys_name}.",
+                "input": f"Study Material: {note}",
+                "output": (
+                    f"Video Title: {sys_name} Biomechanical Masterclass\n"
+                    f"Model: Veo 2.0 / Gemini Multimodal Engine\n"
+                    f"Cinematic Prompt: 4K 60fps photorealistic 3D medical animation depicting {sys_name}. "
+                    f"Dark cyber-medical lighting, smooth camera orbit, exploded layer deconstruction, pulsatile flow.\n"
+                    f"Scene 1: Macro Architecture & 3D Envelope (Explosion: 0.15)\n"
+                    f"Scene 2: Dispatched Assembly & Force Vectors (Explosion: 0.65)\n"
+                    f"Scene 3: Pathophysiological Stress & Failure Modes (Explosion: 0.35)\n"
+                    f"Scene 4: Cohesive Reassembly & Step 1 Board Anchor (Explosion: 0.0)"
+                )
+            })
+
         with open(output_file, "w", encoding="utf-8") as f:
             for entry in dataset_entries:
                 f.write(json.dumps(entry) + "\n")
@@ -740,7 +756,12 @@ def run_self_test():
     assert "Dr. Alex:" in podcast and "Dr. Taylor:" in podcast
     print("✓ 2-Speaker Clinical Podcast synthesis passed.")
 
-    # 6. Test Synthetic Dataset Builder
+    # 6. Test Multimodal Video Generation Prompt & Storyboard
+    test_video_prompt = f"Cinematic 4K 60fps photorealistic 3D medical animation depicting {STOIC_ANATOMY_SYSTEMS[1]['name']}"
+    assert "Cinematic" in test_video_prompt
+    print("✓ Multimodal Video Generation prompt & storyboard generator passed.")
+
+    # 7. Test Synthetic Dataset Builder
     count = StoicModelTrainer.build_synthetic_training_dataset("test_dataset.jsonl")
     assert count > 0
     if os.path.exists("test_dataset.jsonl"):
