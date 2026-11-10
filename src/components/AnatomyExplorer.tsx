@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { AnatomySystem, AnatomyPartDef } from '../utils/anatomyData';
+import { AnatomyLabel, LearningPlan } from '../utils/adaptiveLearningBridge';
 import {
   AnatomyCanvas3D,
   AnatomyCanvas3DHandle,
@@ -46,6 +47,46 @@ export const AnatomyExplorer: React.FC<AnatomyExplorerProps> = ({
   const [statusMessage, setStatusMessage] = useState<string>(
     'All anatomical systems loaded successfully.'
   );
+
+  // Adaptive KI Learning state
+  const [adaptiveLabels, setAdaptiveLabels] = useState<AnatomyLabel[]>([]);
+  const [learningPlan, setLearningPlan] = useState<LearningPlan | null>(null);
+
+  // Fetch adaptive anatomy labels and learning plan
+  useEffect(() => {
+    async function fetchAdaptiveData() {
+      try {
+        const labelsRes = await fetch('/api/adaptive/anatomy-labels?userId=default_user&modelId=human_anatomy');
+        if (labelsRes.ok) {
+          const data = await labelsRes.json();
+          if (data.labels) {
+            setAdaptiveLabels(data.labels);
+          }
+        }
+
+        const planRes = await fetch('/api/adaptive/plan?userId=default_user&topic=femur');
+        if (planRes.ok) {
+          const pData = await planRes.json();
+          if (pData.plan) {
+            setLearningPlan(pData.plan);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load adaptive learning data:', e);
+      }
+    }
+    fetchAdaptiveData();
+  }, []);
+
+  // Check if selected part has reviewed adaptive label binding
+  const matchingAdaptiveLabel = selectedPart
+    ? adaptiveLabels.find((l) => {
+        const pId = selectedPart.id.toLowerCase();
+        const pName = selectedPart.name.toLowerCase();
+        const mName = l.mesh_name.toLowerCase();
+        return pId.includes(mName) || mName.includes(pId) || pName.includes(mName) || mName.includes(pName);
+      })
+    : null;
 
   // Active layers state
   const [activeLayers, setActiveLayers] = useState<Record<AnatomicalLayerKey, boolean>>({
@@ -103,7 +144,22 @@ export const AnatomyExplorer: React.FC<AnatomyExplorerProps> = ({
           <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-zinc-900">
             Interactive 3D Anatomical Atlas
           </h1>
-          <p className="text-xs text-zinc-600 max-w-2xl leading-relaxed">
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-100 border border-zinc-300 text-zinc-700">
+              Adaptive KI Engine Active
+            </span>
+            {learningPlan && learningPlan.recommend_3d_review && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-100 border border-amber-300 text-amber-900 animate-pulse">
+                ★ 3D Review Recommended (Mastery: {Math.round(learningPlan.mastery_estimate * 100)}%)
+              </span>
+            )}
+            {learningPlan && !learningPlan.recommend_3d_review && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 border border-emerald-300 text-emerald-900">
+                ✓ Mastered ({learningPlan.difficulty.toUpperCase()})
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-zinc-600 max-w-2xl leading-relaxed mt-0.5">
             Exploded disassembly, multi-layer peel, realistic PBR organ rendering, and USMLE clinical dossiers.
           </p>
         </div>
@@ -431,6 +487,17 @@ export const AnatomyExplorer: React.FC<AnatomyExplorerProps> = ({
                     <p className="text-zinc-700 text-xs">
                       {selectedPart.description}
                     </p>
+
+                    {matchingAdaptiveLabel && (
+                      <div className="bg-sky-50 p-2.5 rounded border border-sky-200 text-[11px] text-sky-950 space-y-1">
+                        <div className="flex items-center gap-1 font-bold text-sky-900">
+                          <Sparkles className="w-3 h-3 text-sky-600" />
+                          <span>Reviewed Clinical Mesh Label:</span>
+                        </div>
+                        <p className="font-semibold">{matchingAdaptiveLabel.label}</p>
+                        <p className="text-sky-800">{matchingAdaptiveLabel.description}</p>
+                      </div>
+                    )}
 
                     {selectedPart.highYieldFact && (
                       <div className="bg-white p-2 rounded border border-zinc-200 text-[11px] text-zinc-800">

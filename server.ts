@@ -20,6 +20,7 @@ import {
   buildVeoVideoPrompt,
   VideoStoryboard,
 } from './src/utils/videoExplanationEngine.ts';
+import { adaptiveLearningBridge } from './src/utils/adaptiveLearningBridge.ts';
 
 dotenv.config();
 
@@ -704,6 +705,96 @@ Each scene must feature:
     videoPrompt,
     isAiGenerated: false,
   });
+});
+
+// ---------------------------------------------------------------------------
+// ADAPTIVE KI LEARNING API ENDPOINTS (SQLite + Knowledge Integration)
+// ---------------------------------------------------------------------------
+
+// Add a private plain text resource
+app.post('/api/adaptive/resource', async (req: Request, res: Response) => {
+  try {
+    const { userId = 'default_user', topic, extractedText } = req.body;
+    if (!topic || !extractedText) {
+      return res.status(400).json({ error: 'Topic and extractedText are required.' });
+    }
+    const resourceId = await adaptiveLearningBridge.addResource(userId, topic, extractedText);
+    return res.json({ success: true, resourceId });
+  } catch (err: any) {
+    return res.status(400).json({ error: err?.message || 'Failed to add resource.' });
+  }
+});
+
+// Reviewer/Admin approves resource
+app.post('/api/adaptive/approve', async (req: Request, res: Response) => {
+  try {
+    const { resourceId } = req.body;
+    if (!resourceId) {
+      return res.status(400).json({ error: 'resourceId is required.' });
+    }
+    const success = await adaptiveLearningBridge.approveResource(resourceId);
+    return res.json({ success });
+  } catch (err: any) {
+    return res.status(400).json({ error: err?.message || 'Failed to approve resource.' });
+  }
+});
+
+// Retrieve learning plan for a user & topic
+app.get('/api/adaptive/plan', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.query.userId as string) || 'default_user';
+    const topic = (req.query.topic as string) || 'general';
+    const plan = await adaptiveLearningBridge.getLearningPlan(userId, topic);
+    return res.json({ success: true, plan });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Failed to get learning plan.' });
+  }
+});
+
+// Record answer correctness (Server-side determined)
+app.post('/api/adaptive/record-answer', async (req: Request, res: Response) => {
+  try {
+    const { userId = 'default_user', topic = 'general', correct } = req.body;
+    if (typeof correct !== 'boolean') {
+      return res.status(400).json({ error: 'correct must be a boolean.' });
+    }
+    const updatedPlan = await adaptiveLearningBridge.recordAnswer(userId, topic, correct);
+    return res.json({ success: true, plan: updatedPlan });
+  } catch (err: any) {
+    return res.status(400).json({ error: err?.message || 'Failed to record answer.' });
+  }
+});
+
+// Retrieve 3D mesh anatomy labels for a model
+app.get('/api/adaptive/anatomy-labels', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.query.userId as string) || 'default_user';
+    const modelId = (req.query.modelId as string) || 'human_anatomy';
+    const labels = await adaptiveLearningBridge.getAnatomyLabels(userId, modelId);
+    return res.json({ success: true, labels });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Failed to get anatomy labels.' });
+  }
+});
+
+// Add 3D anatomy label (reviewer binding)
+app.post('/api/adaptive/anatomy-labels', async (req: Request, res: Response) => {
+  try {
+    const { resourceId, modelId = 'human_anatomy', meshName, label, description } = req.body;
+    if (!resourceId || !meshName || !label || !description) {
+      return res.status(400).json({ error: 'resourceId, meshName, label, description are required.' });
+    }
+    const success = await adaptiveLearningBridge.addAnatomyLabel(
+      resourceId,
+      modelId,
+      meshName,
+      label,
+      description
+    );
+    return res.json({ success });
+  } catch (err: any) {
+    return res.status(400).json({ error: err?.message || 'Failed to add anatomy label.' });
+  }
 });
 
 // Europe PMC / PubMed Biomedical Research Proxy

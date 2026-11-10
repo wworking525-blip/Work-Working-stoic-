@@ -28,6 +28,7 @@ import {
 import { verifyEvidenceInText } from '../utils/textParser';
 import { ANATOMICAL_SYSTEMS, AnatomySystem } from '../utils/anatomyData';
 import { extractTextFromFile, validateMaterialForMCQs } from '../utils/fileExtractor';
+import { LearningPlan } from '../utils/adaptiveLearningBridge';
 
 export interface MCQItem {
   q: string;
@@ -64,6 +65,51 @@ export const MCQPractice: React.FC<MCQPracticeProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
   const [filterView, setFilterView] = useState<'all' | 'missed'>('all');
+
+  // Adaptive KI Learning state
+  const [adaptivePlan, setAdaptivePlan] = useState<LearningPlan | null>(null);
+
+  // Fetch adaptive learning plan for current topic
+  useEffect(() => {
+    async function loadPlan() {
+      try {
+        const topicSlug = activeSourceName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const res = await fetch(`/api/adaptive/plan?userId=default_user&topic=${encodeURIComponent(topicSlug)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.plan) {
+            setAdaptivePlan(data.plan);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch adaptive plan:', e);
+      }
+    }
+    loadPlan();
+  }, [activeSourceName]);
+
+  const recordServerAnswer = async (correct: boolean) => {
+    try {
+      const topicSlug = activeSourceName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const res = await fetch('/api/adaptive/record-answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: 'default_user',
+          topic: topicSlug,
+          correct,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.plan) {
+          setAdaptivePlan(data.plan);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not record server answer:', e);
+    }
+  };
 
   // File Upload & Custom Notes State
   const [uploading, setUploading] = useState(false);
@@ -273,7 +319,29 @@ export const MCQPractice: React.FC<MCQPracticeProps> = ({
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">
           High-Yield Board Practice MCQs
         </h1>
-        <p className="text-xs sm:text-sm text-zinc-600 mt-1 max-w-2xl leading-relaxed">
+        {adaptivePlan && (
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-zinc-100 border border-zinc-300 text-zinc-800">
+              Adaptive Mastery: {Math.round(adaptivePlan.mastery_estimate * 100)}%
+            </span>
+            <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+              adaptivePlan.difficulty === 'advanced'
+                ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                : adaptivePlan.difficulty === 'intermediate'
+                ? 'bg-sky-100 text-sky-900 border-sky-300'
+                : 'bg-zinc-100 text-zinc-800 border-zinc-300'
+            }`}>
+              Level: {adaptivePlan.difficulty.toUpperCase()}
+            </span>
+            {adaptivePlan.recommend_3d_review && (
+              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-300 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-amber-600" />
+                <span>3D Anatomical Disassembly Review Recommended</span>
+              </span>
+            )}
+          </div>
+        )}
+        <p className="text-xs sm:text-sm text-zinc-600 mt-1.5 max-w-2xl leading-relaxed">
           Generate 10 to 50 randomized clinical vignette questions derived directly from your uploaded study materials, notes, or PDFs, complete with verifiable quote evidence and distractor pearls.
         </p>
       </div>
@@ -691,10 +759,13 @@ export const MCQPractice: React.FC<MCQPracticeProps> = ({
                         key={optIdx}
                         disabled={isAnswered}
                         onClick={() => {
+                          const isCorrectChoice = optIdx === q.answer;
                           setUserAnswers((prev) => ({
                             ...prev,
                             [originalIndex]: optIdx,
                           }));
+                          // Server determines correctness and updates adaptive learning plan
+                          recordServerAnswer(isCorrectChoice);
                         }}
                         className={`w-full text-left p-3 rounded-lg border text-xs flex items-center justify-between gap-3 transition-colors ${btnStyle}`}
                       >

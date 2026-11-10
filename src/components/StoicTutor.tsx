@@ -31,6 +31,7 @@ import { calculateTextStats } from '../utils/textParser';
 import { GroundedCitation, GroundedQAResult } from '../utils/groundedQA';
 import { VisualVideoPlayer } from './VisualVideoPlayer';
 import { generateVisualStoryboard, VideoStoryboard } from '../utils/videoExplanationEngine';
+import { LearningPlan } from '../utils/adaptiveLearningBridge';
 
 interface StoicTutorProps {
   initialMaterial?: string;
@@ -75,6 +76,28 @@ export const StoicTutor: React.FC<StoicTutorProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [highlightedQuote, setHighlightedQuote] = useState<string | null>(null);
+
+  // Adaptive KI Learning state
+  const [adaptivePlan, setAdaptivePlan] = useState<LearningPlan | null>(null);
+
+  // Fetch adaptive learning plan
+  useEffect(() => {
+    async function loadPlan() {
+      try {
+        const topicSlug = (sourceName || 'general').toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const res = await fetch(`/api/adaptive/plan?userId=default_user&topic=${encodeURIComponent(topicSlug)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.plan) {
+            setAdaptivePlan(data.plan);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch adaptive plan in tutor:', e);
+      }
+    }
+    loadPlan();
+  }, [sourceName]);
 
   // Audio Podcast Player state for "Deep Dive"
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -456,7 +479,23 @@ export const StoicTutor: React.FC<StoicTutorProps> = ({
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">
             Strict Grounded Study Material Tutor
           </h1>
-          <p className="text-sm text-zinc-600 mt-1">
+          {adaptivePlan && (
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-zinc-100 border border-zinc-300 text-zinc-800">
+                Adaptive Mastery: {Math.round(adaptivePlan.mastery_estimate * 100)}%
+              </span>
+              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-zinc-100 text-zinc-800 border border-zinc-300 uppercase">
+                {adaptivePlan.difficulty}
+              </span>
+              {adaptivePlan.recommend_3d_review && (
+                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-300 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-600" />
+                  <span>Recommend 3D Visual &amp; Mesh Review</span>
+                </span>
+              )}
+            </div>
+          )}
+          <p className="text-sm text-zinc-600 mt-1.5">
             Upload text or PDF materials. STOIC AI answers strictly using facts from your material and cites exact source quotes.
           </p>
         </div>
