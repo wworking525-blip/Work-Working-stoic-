@@ -146,7 +146,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             S
           </div>
           <h3 className="text-xl font-extrabold text-zinc-900 tracking-tight">
-            {isSignUp ? 'Create Scholar Account' : 'Sign in to MedStudy'}
+            {isSignUp ? 'Create Scholar Account' : 'Sign in to STOIC'}
           </h3>
           <p className="text-xs text-zinc-500 mt-1">
             Persistent cloud storage with Firebase Firestore database

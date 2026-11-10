@@ -132,7 +132,7 @@ export const BiomedicalPapers: React.FC<BiomedicalPapersProps> = ({
           Peer-Reviewed Biomedical Literature
         </h1>
         <p className="text-xs sm:text-sm text-zinc-600 mt-1 max-w-2xl leading-relaxed">
-          Search millions of verified open-access clinical and anatomical studies. Export abstracts directly into your MedStudy notes for instant AI Tutor grounding.
+          Search millions of verified open-access clinical and anatomical studies. Export abstracts directly into your STOIC notes for instant AI Tutor grounding.
         </p>
       </div>
 
@@ -327,7 +327,7 @@ export const BiomedicalPapers: React.FC<BiomedicalPapersProps> = ({
                 </div>
               )}
 
-              {/* Gemini Simplified Breakdown Card */}
+              {/* Simplified Breakdown Card */}
               {explanation && (
                 <div className="p-4 rounded border border-zinc-300 bg-zinc-50 text-xs text-zinc-900 space-y-2">
                   <div className="flex items-center gap-1.5 font-bold text-zinc-900 uppercase tracking-wider text-[11px]">

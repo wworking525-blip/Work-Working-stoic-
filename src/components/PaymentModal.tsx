@@ -88,10 +88,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       features: [
         'Complete 26-Part Master Knolling Kit with 90° organized deconstruction',
         'Unlimited AI-generated USMLE question sets with verified quote citations',
-        'NotebookLM 2-speaker medical podcast synthesis & deep summaries',
+        'STOIC 2-speaker medical audio podcast & deep summaries',
         'Full Flywheel Kinematic Physics & dual bearing stress analysis',
         'Persistent Firestore Cloud Database synchronization across devices',
-        'Priority Gemini 2.5 Flash clinical reasoning engine',
+        'Priority STOIC clinical reasoning engine',
       ],
       cta: 'Upgrade to PRO',
     },

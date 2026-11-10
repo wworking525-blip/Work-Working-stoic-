@@ -1,5 +1,5 @@
 /**
- * STOIC / MedStudy Grounded Q&A and Citation Engine
+ * STOIC Grounded Q&A and Citation Engine
  * Enforces strict material grounding:
  * 1. AI answers strictly based on uploaded study materials.
  * 2. Explicitly states when a question cannot be answered from the material.
@@ -126,7 +126,7 @@ export function answerGroundedQuestionLocally(material: string, question: string
   // Check if query is completely absent from the material
   if (matchingSentences.length === 0 || (keywords.length > 2 && matchingSentences[0].score < 2)) {
     return {
-      answer: `This question cannot be answered from the provided study material. The uploaded text does not contain information regarding "${cleanQuestion}".\n\nUnder strict MedStudy grounding rules, the AI tutor only provides facts, explanations, and mechanisms explicitly documented in your uploaded material and will not extrapolate external clinical assumptions.`,
+      answer: `This question cannot be answered from the provided study material. The uploaded text does not contain information regarding "${cleanQuestion}".\n\nUnder strict STOIC grounding rules, the AI tutor only provides facts, explanations, and mechanisms explicitly documented in your uploaded material and will not extrapolate external clinical assumptions.`,
       canBeAnswered: false,
       unansweredReason: `The uploaded text lacks coverage of key terms: ${keywords.join(', ')}.`,
       citations: [],

@@ -276,7 +276,7 @@ export const StudyCanvasWhiteboard: React.FC<StudyCanvasWhiteboardProps> = ({
   };
 
   const handleSaveToNotes = () => {
-    const notesContent = `ANATOMICAL DIAGRAM: ${diagramTitle}\nCreated on MedStudy Whiteboard\nAccount: ${canvaProfile.email}\nTimestamp: ${new Date().toLocaleString()}`;
+    const notesContent = `ANATOMICAL DIAGRAM: ${diagramTitle}\nCreated on STOIC Whiteboard\nAccount: ${canvaProfile.email}\nTimestamp: ${new Date().toLocaleString()}`;
     onSaveToNotes?.(diagramTitle, notesContent);
     showToast('Diagram metadata saved to your Notes & Firestore.');
   };

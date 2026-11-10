@@ -352,7 +352,7 @@ export function createHeuristic3DModelFromPhoto(fileName: string): AnatomySystem
       'Interactive 3D geometry dynamically reconstructed from uploaded image',
       'Coupled Zoom-Dispatch: Zooming in dispatches all parts; zooming out assembles them',
       'Pinpoint anatomical labeling on every single organ, bone, and vessel',
-      'Direct cross-linking to STOIC Chat Box and NotebookLM Tutor',
+      'Direct cross-linking to STOIC Chat Box and STOIC AI Tutor',
     ],
     clinicalPearls: [
       'Image-based 3D reconstruction clarifies deep anatomical relationships obscured in 2D textbook plates.',

@@ -115,7 +115,7 @@ export const GoogleNotesModal: React.FC<GoogleNotesModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Synced with your Google account • 1-click import into NotebookLM Tutor
+                Synced with your Google account • 1-click import into STOIC Tutor
               </p>
             </div>
           </div>
@@ -291,7 +291,7 @@ export const GoogleNotesModal: React.FC<GoogleNotesModalProps> = ({
                       className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-amber-950 text-[11px] font-bold shadow-sm transition-colors flex items-center gap-1"
                     >
                       <Sparkles className="w-3 h-3" />
-                      <span>Study in NotebookLM</span>
+                      <span>Study in STOIC Tutor</span>
                     </button>
                   </div>
                 </div>

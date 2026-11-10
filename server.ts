@@ -309,7 +309,7 @@ RULES:
   }
 });
 
-// NotebookLM-Style Medical Tutor Modes (First Principles, Simple, Podcast, FAQs)
+// MedStudy Grounded Medical Tutor Modes (First Principles, Simple, Podcast, FAQs)
 app.post('/api/gemini/tutor', async (req: Request, res: Response) => {
   const { material, question, mode = 'first_principles', apiKey } = req.body;
   if (!material || typeof material !== 'string' || material.trim().length === 0) {
@@ -667,7 +667,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[MedStudy Server] running on http://0.0.0.0:${PORT}`);
+    console.log(`[STOIC Server] running on http://0.0.0.0:${PORT}`);
   });
 }
 

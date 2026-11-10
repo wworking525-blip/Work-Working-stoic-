@@ -124,7 +124,7 @@ export function saveStoredCanvaProfile(profile: CanvaAccountProfile): void {
 }
 
 export function generateCanvaExportUrl(type: 'whiteboard' | 'infographic' | 'flashcards' | 'presentation', title: string): string {
-  const encodedTitle = encodeURIComponent(`MedStudy - ${title}`);
+  const encodedTitle = encodeURIComponent(`STOIC - ${title}`);
   // Canva deep link for creating or opening design templates
   return `https://www.canva.com/search?q=${encodeURIComponent(type + ' ' + title)}`;
 }
@@ -136,7 +136,7 @@ export function formatCanvaStudyExport(
   drawingImageBase64?: string
 ) {
   return {
-    appName: 'MedStudy STOIC',
+    appName: 'STOIC',
     account: 'saiarts9848@gmail.com',
     exportedAt: new Date().toISOString(),
     title,

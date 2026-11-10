@@ -101,7 +101,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               Welcome back, {user.name}!
             </h1>
             <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
-              Track your 3D mechanical anatomy progress, study notes with NotebookLM,
+              Track your 3D mechanical anatomy progress, study notes with our AI Study Tutor,
               and test your knowledge with grounded USMLE clinical MCQs.
             </p>
 
@@ -499,7 +499,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 text-left transition-colors flex flex-col justify-between h-20"
               >
                 <BookOpen className="w-4 h-4 text-indigo-600" />
-                <span>NotebookLM</span>
+                <span>AI Study Tutor</span>
               </button>
               <button
                 onClick={onNavigateToMCQ}
@@ -513,7 +513,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 className="p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 text-left transition-colors flex flex-col justify-between h-20"
               >
                 <Sparkles className="w-4 h-4 text-purple-600" />
-                <span>Gemini MedChat</span>
+                <span>STOIC Chat</span>
               </button>
             </div>
           </div>

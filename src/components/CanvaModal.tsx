@@ -68,7 +68,7 @@ export const CanvaModal: React.FC<CanvaModalProps> = ({
     };
     setProfile(updated);
     saveStoredCanvaProfile(updated);
-    showToast('Canvas LMS connection updated and synced with MedStudy.');
+    showToast('Canvas LMS connection updated and synced with STOIC.');
   };
 
   return (
@@ -274,7 +274,7 @@ export const CanvaModal: React.FC<CanvaModalProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-zinc-500">
-                  Connect your medical university's Canvas LMS endpoint to pull lecture slides, syllabus, and reading materials into the NotebookLM tutor.
+                  Connect your medical university's Canvas LMS endpoint to pull lecture slides, syllabus, and reading materials into the STOIC AI tutor.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>

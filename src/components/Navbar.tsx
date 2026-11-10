@@ -76,10 +76,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
               <div className="flex flex-col">
                 <span className="text-base font-black tracking-wider text-black leading-none">
-                  MEDSTUDY<span className="text-zinc-500 font-semibold text-xs ml-1">STOIC</span>
+                  STOIC
                 </span>
                 <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-400">
-                  3D Anatomy &amp; Tutor
+                  3D Anatomy &amp; Intelligence
                 </span>
               </div>
             </button>

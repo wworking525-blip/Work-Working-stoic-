@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Navbar, ActiveTab } from './components/Navbar';
 import { FrontHub } from './components/FrontHub';
 import { AnatomyExplorer } from './components/AnatomyExplorer';
-import { NotebookLMTutor } from './components/NotebookLMTutor';
+import { StoicTutor } from './components/StoicTutor';
 import { MCQPractice } from './components/MCQPractice';
 import { BiomedicalPapers } from './components/BiomedicalPapers';
-import { GeminiChatbot } from './components/GeminiChatbot';
+import { StoicChatbot } from './components/StoicChatbot';
 import { AuthModal } from './components/AuthModal';
 import { GoogleNotesModal } from './components/GoogleNotesModal';
 import { PaymentModal } from './components/PaymentModal';
@@ -186,7 +186,7 @@ export default function App() {
         </div>
 
         <div className={activeTab === 'tutor' ? 'block' : 'hidden'}>
-          <NotebookLMTutor
+          <StoicTutor
             initialMaterial={studyMaterial}
             initialTopic={targetTopic}
             sourceName={sourceName}
@@ -201,8 +201,9 @@ export default function App() {
         <div className={activeTab === 'mcq' ? 'block' : 'hidden'}>
           <MCQPractice
             material={studyMaterial}
-            systemName={currentSystem.name}
+            systemName={sourceName || currentSystem.name}
             onOpenTutor={() => setActiveTab('tutor')}
+            onUpdateMaterial={handleUpdateMaterial}
           />
         </div>
 
@@ -211,7 +212,7 @@ export default function App() {
         </div>
 
         <div className={activeTab === 'chat' ? 'block' : 'hidden'}>
-          <GeminiChatbot
+          <StoicChatbot
             currentSystem={currentSystem}
             uploadedMaterial={studyMaterial}
           />
@@ -277,7 +278,7 @@ export default function App() {
               S
             </div>
             <span className="font-bold text-zinc-900">
-              MEDSTUDY • STOIC
+              STOIC
             </span>
             <span>•</span>
             <span>3D Anatomy, Strict Grounded Tutor &amp; USMLE Simulators</span>
@@ -296,7 +297,7 @@ export default function App() {
         </div>
 
         <div className="max-w-7xl mx-auto mt-4 pt-4 border-t border-zinc-100 text-[10px] text-zinc-400 leading-relaxed">
-          Disclaimer: MedStudy / STOIC is an interactive medical &amp; biomechanical education platform designed for students, residents, and instructors. Content is synthesized from uploaded materials, peer-reviewed literature, standard anatomical texts, and physical principles.
+          Disclaimer: STOIC is an interactive medical &amp; biomechanical education platform designed for students, residents, and instructors. Content is synthesized from uploaded materials, peer-reviewed literature, standard anatomical texts, and physical principles.
         </div>
       </footer>
     </div>

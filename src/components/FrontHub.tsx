@@ -72,10 +72,10 @@ export const FrontHub: React.FC<FrontHubProps> = ({
     },
     {
       id: 'tutor',
-      title: 'NotebookLM Grounded Tutor',
+      title: 'STOIC Grounded Tutor',
       category: 'Strict Evidence Grounding',
       description:
-        'Upload study materials (PDFs, text). Gemini answers questions strictly from your content with exact source citations and explicit refusal if content is missing.',
+        'Upload study materials (PDFs, text). STOIC AI answers questions strictly from your content with exact source citations and explicit refusal if content is missing.',
       badge: 'PDF Upload & Citations',
       actionLabel: 'Open AI Tutor',
       onAction: onNavigateToTutor,
@@ -122,9 +122,9 @@ export const FrontHub: React.FC<FrontHubProps> = ({
       <div className="border-b border-zinc-200 pb-8 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-black text-white text-[11px] font-mono uppercase tracking-wider">
-            <span>MEDSTUDY</span>
+            <span>STOIC MEDICAL INTELLIGENCE</span>
             <span>•</span>
-            <span>STOIC CLINICAL PLATFORM</span>
+            <span>CLINICAL PLATFORM</span>
           </div>
 
           <div className="flex items-center gap-2 text-xs font-mono text-zinc-600">

@@ -84,7 +84,7 @@ Imagine your body is a high-tech smart city. This system is like the main plumbi
 }
 
 /**
- * Generate an authentic 2-speaker NotebookLM Deep Dive Audio Overview script.
+ * Generate an authentic 2-speaker STOIC Deep Dive Audio Overview script.
  */
 export function generatePodcastScript(material: string, topic?: string): string {
   const cleanTopic = topic || 'Human Anatomy & Biomechanical Assembly';
