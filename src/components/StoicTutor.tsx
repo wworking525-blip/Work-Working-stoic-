@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { ANATOMICAL_SYSTEMS } from '../utils/anatomyData';
 import { calculateTextStats } from '../utils/textParser';
+import { useMobile } from '../hooks/useMobile';
 import { GroundedCitation, GroundedQAResult } from '../utils/groundedQA';
 import { VisualVideoPlayer } from './VisualVideoPlayer';
 import { generateVisualStoryboard, VideoStoryboard } from '../utils/videoExplanationEngine';
@@ -75,6 +76,8 @@ export const StoicTutor: React.FC<StoicTutorProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [highlightedQuote, setHighlightedQuote] = useState<string | null>(null);
+  const isMobile = useMobile();
+  const [mobileMaterialOpen, setMobileMaterialOpen] = useState(false);
 
   // Audio Podcast Player state for "Deep Dive"
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -506,10 +509,25 @@ export const StoicTutor: React.FC<StoicTutorProps> = ({
         </div>
       </div>
 
+      {/* Mobile Material Source Toggle */}
+      {isMobile && (
+        <div className="flex items-center justify-between p-3 border border-zinc-200 rounded-lg bg-zinc-50">
+          <span className="text-xs font-semibold text-zinc-700">
+            Source: <span className="font-bold text-zinc-900">{sourceName}</span>
+          </span>
+          <button
+            onClick={() => setMobileMaterialOpen(!mobileMaterialOpen)}
+            className="px-2.5 py-1 text-xs font-semibold rounded bg-black text-white"
+          >
+            {mobileMaterialOpen ? 'Hide Notes' : 'Edit Study Notes'}
+          </button>
+        </div>
+      )}
+
       {/* Main Grid: Upload Material Column & Tutor QA Column */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Upload & Study Material Source (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
+        <div className={`${isMobile && !mobileMaterialOpen ? 'hidden' : 'block'} lg:col-span-5 space-y-4`}>
           <div className="border border-zinc-200 rounded-lg p-4 bg-white shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

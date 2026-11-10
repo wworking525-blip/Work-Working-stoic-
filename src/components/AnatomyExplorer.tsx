@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { AnatomySystem, AnatomyPartDef } from '../utils/anatomyData';
+import { useMobile } from '../hooks/useMobile';
 import {
   AnatomyCanvas3D,
   AnatomyCanvas3DHandle,
@@ -47,6 +48,8 @@ export const AnatomyExplorer: React.FC<AnatomyExplorerProps> = ({
   const [statusMessage, setStatusMessage] = useState<string>(
     'All anatomical systems loaded successfully.'
   );
+  const isMobile = useMobile();
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Fetch adaptive labels for 3D model
   React.useEffect(() => {
@@ -169,6 +172,16 @@ export const AnatomyExplorer: React.FC<AnatomyExplorerProps> = ({
             <Activity className="w-3.5 h-3.5 text-black" />
             <span>Reset Complete Body</span>
           </button>
+
+          {isMobile && (
+            <button
+              onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
+              className="px-3.5 py-2 rounded bg-zinc-900 text-white font-medium text-xs flex items-center gap-1.5 transition-colors"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>{mobileDrawerOpen ? 'Hide Controls' : 'Show Anatomy Controls'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -193,7 +206,9 @@ export const AnatomyExplorer: React.FC<AnatomyExplorerProps> = ({
         {/* Sidebar Matching User's Exact Layout & Sections */}
         <aside
           id="sidebar"
-          className="w-full lg:w-[320px] bg-white border border-zinc-200 rounded-xl p-4 shadow-sm space-y-4 shrink-0 flex flex-col justify-between"
+          className={`${
+            isMobile && !mobileDrawerOpen ? 'hidden' : 'flex'
+          } w-full lg:w-[320px] bg-white border border-zinc-200 rounded-xl p-4 shadow-sm space-y-4 shrink-0 flex-col justify-between`}
         >
           <div className="space-y-4">
             {/* Title & Subtitle */}
