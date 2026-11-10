@@ -5,6 +5,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { AnatomyPartDef, AnatomySystem } from '../utils/anatomyData';
 import { PROCEDURAL_PARTS } from '../utils/proceduralAnatomy';
+import { defaultAnatomyData } from '../utils/human3dBodyData';
+import { getBodyPartFromPosition } from '../utils/regionMapper';
+import { createHumanBodySilhouette } from '../utils/humanBodyModel';
 import { AntiGravityExplodedController } from '../utils/antiGravityEngine';
 import {
   RotateCw,
@@ -383,6 +386,16 @@ export const AnatomyCanvas3D = forwardRef<AnatomyCanvas3DHandle, AnatomyCanvas3D
       masterGroupRef.current = masterGroup;
       scene.add(masterGroup);
 
+      // Add human body silhouette for 21-region physical body interactive exploration
+      const silhouette = createHumanBodySilhouette();
+      silhouette.traverse((c) => {
+        if (c instanceof THREE.Mesh) {
+          c.userData = { layer: 'skeleton', isSilhouette: true };
+          meshesRef.current.push(c);
+        }
+      });
+      masterGroup.add(silhouette);
+
       // Pointer click detection & Raycasting
       let startPos = { x: 0, y: 0 };
       const handlePointerDown = (e: MouseEvent) => {
@@ -405,10 +418,37 @@ export const AnatomyCanvas3D = forwardRef<AnatomyCanvas3DHandle, AnatomyCanvas3D
         const visibleMeshes = meshesRef.current.filter((m) => m.visible);
         const intersects = raycaster.intersectObjects(visibleMeshes, false);
 
-        if (intersects.length > 0) {
-          const hitMesh = intersects[0].object as THREE.Mesh;
+        if (intersects.length > 0 && intersects[0].point) {
+          const hit = intersects[0];
+          const hitMesh = hit.object as THREE.Mesh;
           const rawName = hitMesh.name || 'Anatomical Structure';
           const layerId = (hitMesh.userData.layer as AnatomicalLayerKey) || 'skeleton';
+
+          // Use position to map to one of the 21 physical body regions if mesh name is generic or body silhouette
+          const localPoint = hitMesh.worldToLocal(hit.point.clone());
+          const regionId = getBodyPartFromPosition(localPoint);
+          const regionInfo = defaultAnatomyData[regionId];
+
+          if (rawName.includes('Silhouette') || rawName.includes('Human') || !definitionsRef.current[rawName]) {
+            if (regionInfo) {
+              const partDef: AnatomyPartDef = {
+                id: regionInfo.id,
+                name: regionInfo.name,
+                latinName: `${regionInfo.name} Humani`,
+                layer: layerId === 'muscles' ? 'muscular' : layerId === 'organs' ? 'visceral' : 'skeletal',
+                geometryType: 'sphere',
+                color: regionInfo.color || '#38bdf8',
+                position: [hit.point.x, hit.point.y, hit.point.z],
+                scale: [1, 1, 1],
+                explosionDir: [0, 0, 0],
+                mechanicalRole: `21-region physical body segment: ${regionInfo.name}.`,
+                description: regionInfo.description,
+                highYieldFact: regionInfo.facts && regionInfo.facts.length > 0 ? regionInfo.facts.join(' • ') : 'High-yield anatomical landmark.',
+              };
+              onSelectPartRef.current(partDef);
+              return;
+            }
+          }
 
           const partDef = getPartDossierInfo(rawName, layerId);
           onSelectPartRef.current(partDef);
