@@ -34,7 +34,7 @@ export const BiomedicalPapers: React.FC<BiomedicalPapersProps> = ({
   onSendToTutor,
 }) => {
   const [topic, setTopic] = useState<string>('cardiovascular biomechanics');
-  const [source, setSource] = useState<'all' | 'pubmed' | 'europepmc'>('all');
+  const [source, setSource] = useState<'all' | 'pubmed' | 'europepmc' | 'arxiv'>('all');
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
