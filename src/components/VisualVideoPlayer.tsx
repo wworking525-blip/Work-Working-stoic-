@@ -24,8 +24,10 @@ import {
   List,
   Clock,
   BookOpen,
+  Download,
+  Film,
 } from 'lucide-react';
-import { VideoStoryboard, VideoScene, VisualCallout } from '../utils/videoExplanationEngine';
+import { VideoStoryboard, VideoScene, VisualCallout, CanvasVideoRecorder } from '../utils/videoExplanationEngine';
 
 interface VisualVideoPlayerProps {
   storyboard: VideoStoryboard;
@@ -51,9 +53,12 @@ export const VisualVideoPlayer: React.FC<VisualVideoPlayerProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeCallout, setActiveCallout] = useState<VisualCallout | null>(null);
   const [showChaptersDrawer, setShowChaptersDrawer] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasMountRef = useRef<HTMLDivElement>(null);
+  const videoRecorderRef = useRef<CanvasVideoRecorder | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -406,6 +411,37 @@ export const VisualVideoPlayer: React.FC<VisualVideoPlayerProps> = ({
     }
   };
 
+  const handleToggleRecord = async () => {
+    const canvas = rendererRef.current?.domElement;
+    if (!canvas) return;
+
+    if (!isRecording) {
+      try {
+        const recorder = new CanvasVideoRecorder(canvas);
+        videoRecorderRef.current = recorder;
+        recorder.startRecording(30);
+        setIsRecording(true);
+        if (!isPlaying) {
+          setIsPlaying(true);
+        }
+      } catch (err: any) {
+        console.warn('Canvas recording not supported or failed:', err);
+      }
+    } else {
+      try {
+        const recorder = videoRecorderRef.current;
+        if (recorder) {
+          const { url } = await recorder.stopRecording();
+          setDownloadUrl(url);
+          setIsRecording(false);
+        }
+      } catch (err: any) {
+        console.warn('Stop recording failed:', err);
+        setIsRecording(false);
+      }
+    }
+  };
+
   const handleSeek = (newTime: number) => {
     const clamped = Math.max(0, Math.min(newTime, totalDuration));
     setCurrentTime(clamped);
@@ -727,6 +763,32 @@ export const VisualVideoPlayer: React.FC<VisualVideoPlayerProps> = ({
             <option value="1.5">1.5x</option>
             <option value="2.0">2.0x</option>
           </select>
+
+          {/* Video Capture & Download */}
+          <button
+            onClick={handleToggleRecord}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
+              isRecording
+                ? 'bg-rose-600 text-white animate-pulse'
+                : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
+            }`}
+            title={isRecording ? 'Stop Recording' : 'Record Video Clip (WebM/MP4)'}
+          >
+            <Film className="w-3.5 h-3.5 text-rose-400" />
+            <span>{isRecording ? 'Rec...' : 'Record'}</span>
+          </button>
+
+          {downloadUrl && (
+            <a
+              href={downloadUrl}
+              download={`${storyboard.videoTitle.replace(/\s+/g, '_')}_masterclass.webm`}
+              className="flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors"
+              title="Download Recorded Video"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download</span>
+            </a>
+          )}
         </div>
       </div>
     </div>

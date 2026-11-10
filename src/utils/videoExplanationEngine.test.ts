@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
   extractClinicalThemes,
   generateVisualStoryboard,
-} from './videoExplanationEngine';
+  buildVeoVideoPrompt,
+} from './videoExplanationEngine.ts';
 
 test('extractClinicalThemes correctly flags cardiac terms', () => {
   const cardiacNote = 'The left ventricle pumps against high systemic vascular resistance and coronary blood flow occurs in diastole.';
@@ -58,4 +59,12 @@ test('generateVisualStoryboard calculates appropriate explosion and camera vecto
   assert.equal(storyboard.scenes[1].explosionLevel >= 0.5, true);
   // Scene 4 should re-assemble the structure
   assert.equal(storyboard.scenes[3].explosionLevel, 0.0);
+});
+
+test('buildVeoVideoPrompt generates high-fidelity multimodal prompt', () => {
+  const note = 'Cardiac systole ejects blood into the ascending aorta against systemic resistance.';
+  const prompt = buildVeoVideoPrompt(note, 'Cardiovascular Biomechanics');
+  assert.equal(prompt.includes('Cardiovascular Biomechanics'), true);
+  assert.equal(prompt.includes('4K 60fps photorealistic 3D medical animation'), true);
+  assert.equal(prompt.includes('pulsatile physiological flow'), true);
 });

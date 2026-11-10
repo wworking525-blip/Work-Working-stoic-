@@ -5,8 +5,8 @@
  * on-screen visual telemetry callouts, and verbatim quote evidence from user notes.
  */
 
-import { ANATOMICAL_SYSTEMS, AnatomyPartDef } from './anatomyData';
-import { normalizeText, verifyEvidenceInText } from './textParser';
+import { ANATOMICAL_SYSTEMS, type AnatomyPartDef } from './anatomyData.ts';
+import { normalizeText, verifyEvidenceInText } from './textParser.ts';
 
 export interface VisualCallout {
   id: string;
@@ -48,6 +48,26 @@ export interface VideoStoryboard {
   scenes: VideoScene[];
   sourceSummary: string;
   keyFormulas: string[];
+  generationModel?: string;
+  videoUrl?: string;
+}
+
+export interface VideoGenerationRequest {
+  material: string;
+  topic?: string;
+  model?: 'veo-2.0-generate-001' | 'gemini-3.8-flash' | 'procedural-3d' | string;
+  aspectRatio?: '16:9' | '9:16';
+  resolution?: '1080p' | '720p';
+}
+
+export interface VideoGenerationResponse {
+  success: boolean;
+  videoTitle: string;
+  modelUsed: string;
+  storyboard: VideoStoryboard;
+  videoUrl?: string;
+  videoPrompt: string;
+  isAiGenerated: boolean;
 }
 
 /**
@@ -330,5 +350,86 @@ export function generateVisualStoryboard(material: string, topic?: string): Vide
     scenes,
     sourceSummary: `${cleanMat.slice(0, 240)}...`,
     keyFormulas: [formula1, formula2],
+    generationModel: 'STOIC Veo-3D Synthesis Engine',
   };
+}
+
+/**
+ * Builds a cinematic Veo / multimodal video prompt from study material
+ */
+export function buildVeoVideoPrompt(material: string, topic?: string): string {
+  const themes = extractClinicalThemes(material);
+  const cleanTopic = topic || themes.detectedTerms[0] || 'Human Anatomy & Biomechanical Mechanism';
+
+  return (
+    `Cinematic 4K 60fps photorealistic 3D medical animation depicting ${cleanTopic}. ` +
+    `Dark futuristic cyber-medical studio lighting with blue and crimson keylights. ` +
+    `Smooth orbiting camera zooming into dynamic anatomical structures, showcasing pulsatile physiological flow, ` +
+    `elastic vascular compliance, and exploded layer deconstruction. ` +
+    `Accurate anatomical textures, micro-translucency, volumetric glow, and high-definition clinical precision.`
+  );
+}
+
+/**
+ * Client-side Canvas Video Recorder Helper for WebM / MP4 export
+ */
+export class CanvasVideoRecorder {
+  private canvas: HTMLCanvasElement;
+  private mediaRecorder: MediaRecorder | null = null;
+  private recordedChunks: Blob[] = [];
+
+  constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
+  }
+
+  public isSupported(): boolean {
+    return typeof MediaRecorder !== 'undefined' && typeof this.canvas.captureStream === 'function';
+  }
+
+  public startRecording(fps: number = 30): void {
+    if (!this.isSupported()) {
+      throw new Error('MediaRecorder or canvas.captureStream is not supported in this browser.');
+    }
+
+    this.recordedChunks = [];
+    const stream = this.canvas.captureStream(fps);
+
+    const mimeTypes = [
+      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp8',
+      'video/webm',
+      'video/mp4',
+    ];
+    const mimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || 'video/webm';
+
+    this.mediaRecorder = new MediaRecorder(stream, {
+      mimeType,
+      videoBitsPerSecond: 2500000,
+    });
+
+    this.mediaRecorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) {
+        this.recordedChunks.push(event.data);
+      }
+    };
+
+    this.mediaRecorder.start(100);
+  }
+
+  public stopRecording(): Promise<{ blob: Blob; url: string; mimeType: string }> {
+    return new Promise((resolve, reject) => {
+      if (!this.mediaRecorder) {
+        return reject(new Error('MediaRecorder was not initialized or started.'));
+      }
+
+      this.mediaRecorder.onstop = () => {
+        const mimeType = this.mediaRecorder?.mimeType || 'video/webm';
+        const blob = new Blob(this.recordedChunks, { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        resolve({ blob, url, mimeType });
+      };
+
+      this.mediaRecorder.stop();
+    });
+  }
 }

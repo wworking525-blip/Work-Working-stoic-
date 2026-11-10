@@ -30,7 +30,7 @@ import { ANATOMICAL_SYSTEMS } from '../utils/anatomyData';
 import { calculateTextStats } from '../utils/textParser';
 import { GroundedCitation, GroundedQAResult } from '../utils/groundedQA';
 import { VisualVideoPlayer } from './VisualVideoPlayer';
-import { generateVisualStoryboard } from '../utils/videoExplanationEngine';
+import { generateVisualStoryboard, VideoStoryboard } from '../utils/videoExplanationEngine';
 
 interface StoicTutorProps {
   initialMaterial?: string;
@@ -56,9 +56,16 @@ export const StoicTutor: React.FC<StoicTutorProps> = ({
   const [question, setQuestion] = useState<string>(initialTopic || '');
   const [mode, setMode] = useState<'video' | 'qa' | 'first_principles' | 'simple' | 'podcast'>('video');
 
-  const currentStoryboard = useMemo(() => {
+  const defaultStoryboard = useMemo(() => {
     return generateVisualStoryboard(material, question.trim() || undefined);
   }, [material, question]);
+
+  const [aiStoryboard, setAiStoryboard] = useState<VideoStoryboard | null>(null);
+  const [generatingVideo, setGeneratingVideo] = useState(false);
+  const [selectedVideoModel, setSelectedVideoModel] = useState<string>('veo-2.0-generate-001');
+  const [videoStatusMessage, setVideoStatusMessage] = useState<string | null>(null);
+
+  const currentStoryboard = aiStoryboard || defaultStoryboard;
 
   const [loading, setLoading] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
@@ -221,6 +228,7 @@ export const StoicTutor: React.FC<StoicTutorProps> = ({
         onUpdateMaterial?.(text, newSource);
         setQaResult(null);
         setTextOutput('');
+        setAiStoryboard(null);
       } catch (err: any) {
         setError(`Failed to read text file: ${err.message}`);
       }
@@ -228,6 +236,46 @@ export const StoicTutor: React.FC<StoicTutorProps> = ({
 
     // Reset file input so same file can be re-uploaded if desired
     if (e.target) e.target.value = '';
+  };
+
+  // Trigger AI Video Generation from uploaded material
+  const handleGenerateVideo = async () => {
+    if (!material.trim()) {
+      setError('Please upload or provide study material before generating a video.');
+      return;
+    }
+
+    setGeneratingVideo(true);
+    setVideoStatusMessage(`Directing 3D cinematic scenes with ${selectedVideoModel}...`);
+    setError(null);
+
+    try {
+      const storedKey = localStorage.getItem('gemini_api_key') || localStorage.getItem('stoic_gemini_api_key') || '';
+      const res = await fetch('/api/gemini/video-generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          material,
+          topic: question.trim() || undefined,
+          model: selectedVideoModel,
+          apiKey: storedKey || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to generate video storyboard.');
+      }
+
+      setAiStoryboard(data.storyboard);
+      setVideoStatusMessage(`Video successfully synthesized (${data.modelUsed})`);
+    } catch (videoErr: any) {
+      console.error('Video generation error:', videoErr);
+      setError(`Video generation note: ${videoErr.message}. Switched to local 3D procedural video.`);
+      setAiStoryboard(defaultStoryboard);
+    } finally {
+      setGeneratingVideo(false);
+    }
   };
 
   // Submit Grounded Q&A
@@ -661,6 +709,52 @@ export const StoicTutor: React.FC<StoicTutorProps> = ({
           {/* Mode: 3D Visual Video Explanation (YouTube Masterclass Level) */}
           {mode === 'video' && (
             <div className="space-y-4">
+              {/* Video Generation Controls Bar */}
+              <div className="border border-zinc-200 rounded-xl p-3.5 bg-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Film className="w-4 h-4 text-rose-600 shrink-0" />
+                  <div>
+                    <div className="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
+                      <span>Video Generator:</span>
+                      <span className="font-mono text-[11px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border border-rose-200">
+                        {currentStoryboard.generationModel || 'Veo Multimodal Engine'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-zinc-500">
+                      Generates synchronized 3D cinematic scenes from your uploaded study notes.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <select
+                    value={selectedVideoModel}
+                    onChange={(e) => setSelectedVideoModel(e.target.value)}
+                    className="text-xs bg-zinc-50 border border-zinc-300 rounded px-2.5 py-1.5 text-zinc-700 font-mono focus:outline-none focus:border-rose-500"
+                  >
+                    <option value="veo-2.0-generate-001">Veo 2.0 Video Engine</option>
+                    <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                  </select>
+
+                  <button
+                    onClick={handleGenerateVideo}
+                    disabled={generatingVideo || !material.trim()}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-sm transition-colors disabled:opacity-50"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{generatingVideo ? 'Generating Video...' : 'Regenerate Video'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {videoStatusMessage && (
+                <div className="text-[11px] font-mono text-zinc-600 bg-zinc-50 border border-zinc-200 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                  <span>{videoStatusMessage}</span>
+                </div>
+              )}
+
               <VisualVideoPlayer
                 storyboard={currentStoryboard}
                 material={material}
