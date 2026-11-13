@@ -56,15 +56,7 @@ export default function App() {
   const [sourceName, setSourceName] = useState<string>('Pre-loaded: Skeletal Biomechanics');
   const [targetTopic, setTargetTopic] = useState<string>('');
 
-  // Handle active resize when switching to 3D Anatomy so Canvas fits perfectly
-  useEffect(() => {
-    if (activeTab === 'anatomy') {
-      const timer = setTimeout(() => {
-        window.dispatchEvent(new Event('resize'));
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [activeTab]);
+
 
   const handleUpdateMaterial = (newMaterial: string, newSourceName?: string) => {
     setStudyMaterial(newMaterial);
@@ -180,6 +172,12 @@ export default function App() {
 
         <div className={activeTab === 'anatomy' ? 'block' : 'hidden'}>
           <AnatomyExplorer
+            system={currentSystem}
+            onSelectSystem={(sys) => {
+              setCurrentSystem(sys);
+              setStudyMaterial(sys.sampleStudyNote);
+              setSourceName(`System Note: ${sys.name}`);
+            }}
             onSelectSystemForTutor={handleSelectSystemForTutor}
             onSelectSystemForMCQ={handleSelectSystemForMCQ}
             onAskTutorWithTopic={handleAskTutorWithTopic}

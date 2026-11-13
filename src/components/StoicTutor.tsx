@@ -25,12 +25,25 @@ import {
   PlayCircle,
   Eye,
   Compass,
+  Globe,
+  MessageSquare,
+  Flame,
+  Download,
 } from 'lucide-react';
 import { ANATOMICAL_SYSTEMS } from '../utils/anatomyData';
 import { calculateTextStats } from '../utils/textParser';
 import { GroundedCitation, GroundedQAResult } from '../utils/groundedQA';
 import { VisualVideoPlayer } from './VisualVideoPlayer';
 import { generateVisualStoryboard, VideoStoryboard } from '../utils/videoExplanationEngine';
+import {
+  REDDIT_STUDENT_MNEMONICS,
+  searchCommunityMnemonics,
+  CommunityStudyMnemonic,
+} from '../utils/studentCommunityData';
+import {
+  crawlStudyUrl,
+  CrawledMedicalDocument,
+} from '../utils/crawlerIngestionEngine';
 
 interface StoicTutorProps {
   initialMaterial?: string;
@@ -79,6 +92,43 @@ export const StoicTutor: React.FC<StoicTutorProps> = ({
   // Audio Podcast Player state for "Deep Dive"
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [speechSynthesisAvailable, setSpeechSynthesisAvailable] = useState(false);
+
+  // Reddit Community Mnemonics Modal State
+  const [showCommunityModal, setShowCommunityModal] = useState<boolean>(false);
+  const [communitySearch, setCommunitySearch] = useState<string>('');
+  const [communitySystemFilter, setCommunitySystemFilter] = useState<string>('all');
+
+  // Firecrawl Web & Reddit Ingestion Modal State
+  const [showCrawlerModal, setShowCrawlerModal] = useState<boolean>(false);
+  const [crawlerUrl, setCrawlerUrl] = useState<string>('https://en.wikipedia.org/wiki/Brachial_plexus');
+  const [isCrawling, setIsCrawling] = useState<boolean>(false);
+  const [crawlResult, setCrawlResult] = useState<CrawledMedicalDocument | null>(null);
+
+  const handleRunFirecrawl = async () => {
+    if (!crawlerUrl.trim()) return;
+    setIsCrawling(true);
+    setError(null);
+    try {
+      const doc = await crawlStudyUrl(crawlerUrl.trim());
+      setCrawlResult(doc);
+      setMaterial(doc.markdownContent);
+      setSourceName(doc.title);
+      if (onUpdateMaterial) onUpdateMaterial(doc.markdownContent, doc.title);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to crawl target study URL.');
+    } finally {
+      setIsCrawling(false);
+    }
+  };
+
+  const handleLoadMnemonic = (m: CommunityStudyMnemonic) => {
+    const text = `# ${m.topic} (${m.mnemonic})\nSource: ${m.redditSource}\n\nExpansion:\n${m.expansion}\n\nConcept Summary:\n${m.conceptSummary}\n\nHigh-Yield Clinical Trap / Board Pearl:\n${m.clinicalPitfall}`;
+    setMaterial(text);
+    setSourceName(`${m.mnemonic} (${m.topic})`);
+    setQuestion(`Explain the clinical trap regarding ${m.mnemonic} for ${m.topic}`);
+    if (onUpdateMaterial) onUpdateMaterial(text, `${m.mnemonic} (${m.topic})`);
+    setShowCommunityModal(false);
+  };
 
   const materialTextareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -532,16 +582,36 @@ export const StoicTutor: React.FC<StoicTutorProps> = ({
               className="hidden"
             />
 
-            {/* Upload Action Zone */}
+            {/* Upload Action Zone - 2x2 Grid */}
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingPdf}
-                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded bg-black text-white text-xs font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded bg-black text-white text-xs font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
               >
                 <Upload className="w-3.5 h-3.5" />
-                <span>{uploadingPdf ? (uploadProgress || 'Parsing PDF...') : 'Upload PDF / Text'}</span>
+                <span>{uploadingPdf ? (uploadProgress || 'Parsing PDF...') : 'Upload PDF/Notes'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowCommunityModal(true)}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-amber-300 bg-amber-50/80 hover:bg-amber-100 text-amber-950 text-xs font-semibold transition-colors shadow-2xs"
+                title="Browse top-voted Reddit r/step1 and 100 Anatomy Concepts mnemonics"
+              >
+                <Flame className="w-3.5 h-3.5 text-amber-600" />
+                <span>Reddit & Mnemonics</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowCrawlerModal(true)}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-blue-300 bg-blue-50/80 hover:bg-blue-100 text-blue-950 text-xs font-semibold transition-colors shadow-2xs"
+                title="Firecrawl-compatible HTML to clean Markdown transformer"
+              >
+                <Globe className="w-3.5 h-3.5 text-blue-600" />
+                <span>Firecrawl Ingest</span>
               </button>
 
               <button
@@ -553,7 +623,7 @@ export const StoicTutor: React.FC<StoicTutorProps> = ({
                   setQaResult(null);
                   setTextOutput('');
                 }}
-                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded border border-zinc-300 text-zinc-700 text-xs font-medium hover:bg-zinc-100 transition-colors"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-zinc-300 text-zinc-700 text-xs font-medium hover:bg-zinc-100 transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Clear Material</span>
@@ -1100,6 +1170,208 @@ export const StoicTutor: React.FC<StoicTutorProps> = ({
           )}
         </div>
       </div>
+
+      {/* Reddit & 100 Anatomy Concepts Community Mnemonics Modal */}
+      {showCommunityModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-xl border border-zinc-200 shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-zinc-200 flex items-center justify-between bg-zinc-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700">
+                  <Flame className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-900 flex items-center gap-2">
+                    <span>Reddit r/step1 &amp; 100 Anatomy Concepts Mnemonics</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                      Top Voted
+                    </span>
+                  </h3>
+                  <p className="text-xs text-zinc-500">
+                    High-yield consensus mnemonics and clinical traps from medical student communities (r/step1, r/medicalschool).
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCommunityModal(false)}
+                className="p-1 text-zinc-400 hover:text-zinc-700 rounded transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Filter and search bar */}
+            <div className="p-3 border-b border-zinc-100 bg-white flex flex-col sm:flex-row gap-2.5">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={communitySearch}
+                  onChange={(e) => setCommunitySearch(e.target.value)}
+                  placeholder="Search mnemonics (e.g. BEST, radial, SAD PUCKER, NAVeL, Carpal)..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-zinc-50 border border-zinc-200 rounded text-zinc-900 focus:outline-none focus:ring-1 focus:ring-black"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
+                {['all', 'nervous', 'cardiovascular', 'respiratory', 'digestive', 'muscular', 'skeletal'].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setCommunitySystemFilter(cat)}
+                    className={`px-2.5 py-1 rounded capitalize font-medium transition-colors ${
+                      communitySystemFilter === cat
+                        ? 'bg-black text-white'
+                        : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'
+                    }`}
+                  >
+                    {cat === 'all' ? 'All Systems' : cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Mnemonics list */}
+            <div className="flex-1 overflow-y-auto p-4 divide-y divide-zinc-100">
+              {searchCommunityMnemonics(communitySearch, communitySystemFilter).map((item) => (
+                <div key={item.id} className="py-3.5 first:pt-0 last:pb-0 flex flex-col md:flex-row gap-4 items-start justify-between">
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-black text-white font-bold">
+                        {item.mnemonic}
+                      </span>
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                        {item.system}
+                      </span>
+                      <span className="text-zinc-400 text-xs">•</span>
+                      <span className="text-xs text-zinc-500 font-medium">{item.redditSource}</span>
+                      <span className="text-zinc-400 text-xs">•</span>
+                      <span className="text-[10px] text-amber-800 bg-amber-100/60 px-1.5 py-0.2 rounded font-mono">
+                        ▲ {item.upvotesEstimate.toLocaleString()} upvotes
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-bold text-zinc-900">{item.topic}</h4>
+                    <p className="text-xs font-semibold text-zinc-800 bg-zinc-50 p-2 rounded border border-zinc-200">
+                      {item.expansion}
+                    </p>
+                    <p className="text-xs text-zinc-600 leading-relaxed">{item.conceptSummary}</p>
+                    <div className="text-[11px] bg-rose-50/70 border border-rose-200 text-rose-950 px-2.5 py-1.5 rounded leading-relaxed">
+                      <span className="font-semibold text-rose-900">Clinical Trap / Board Pitfall: </span>
+                      {item.clinicalPitfall}
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    <button
+                      onClick={() => handleLoadMnemonic(item)}
+                      className="px-3.5 py-2 rounded bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Load &amp; Drill</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-zinc-200 bg-zinc-50 flex items-center justify-between text-xs text-zinc-500">
+              <span>{REDDIT_STUDENT_MNEMONICS.length} gold-standard student consensus mnemonics available.</span>
+              <button
+                onClick={() => setShowCommunityModal(false)}
+                className="px-3 py-1 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Firecrawl Web & Reddit Ingestion Modal */}
+      {showCrawlerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-xl border border-zinc-200 shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-zinc-200 flex items-center justify-between bg-zinc-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-700">
+                  <Globe className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-900 flex items-center gap-2">
+                    <span>Firecrawl Web &amp; Reddit Ingestion</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200">
+                      HTML ➔ Markdown
+                    </span>
+                  </h3>
+                  <p className="text-xs text-zinc-500">
+                    Crawl web study articles or Reddit threads and transform them into clean semantic Markdown.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCrawlerModal(false)}
+                className="p-1 text-zinc-400 hover:text-zinc-700 rounded transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4 overflow-y-auto">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-zinc-700">Target Study URL / Reddit Thread:</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={crawlerUrl}
+                    onChange={(e) => setCrawlerUrl(e.target.value)}
+                    placeholder="https://en.wikipedia.org/wiki/Brachial_plexus or https://www.reddit.com/r/step1/..."
+                    className="flex-1 px-3 py-2 text-xs bg-zinc-50 border border-zinc-200 rounded text-zinc-900 focus:outline-none focus:ring-1 focus:ring-black"
+                  />
+                  <button
+                    onClick={handleRunFirecrawl}
+                    disabled={isCrawling || !crawlerUrl.trim()}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors flex items-center gap-1.5"
+                  >
+                    {isCrawling ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Crawling...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>Crawl &amp; Ingest</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {crawlResult && (
+                <div className="border border-zinc-200 rounded-lg p-3 bg-zinc-50 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold text-zinc-900">
+                    <span>{crawlResult.title}</span>
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-zinc-200 text-zinc-800">
+                      {crawlResult.extractedFacts.length} Facts Extracted
+                    </span>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto text-xs font-mono bg-white p-2.5 rounded border border-zinc-200 whitespace-pre-wrap text-zinc-800">
+                    {crawlResult.markdownContent}
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      onClick={() => setShowCrawlerModal(false)}
+                      className="px-3.5 py-1.5 bg-black text-white text-xs font-semibold rounded hover:bg-zinc-800"
+                    >
+                      Use Material in Tutor
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

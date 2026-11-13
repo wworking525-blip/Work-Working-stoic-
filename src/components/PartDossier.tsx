@@ -57,6 +57,52 @@ export const PartDossier: React.FC<PartDossierProps> = ({
         </p>
       </div>
 
+      {/* Mechanical Role */}
+      {part.mechanicalRole && (
+        <div className="bg-zinc-50 border border-zinc-200 p-2.5 rounded text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-zinc-900 uppercase tracking-wider text-[10px] mb-1">
+            <Cpu className="w-3.5 h-3.5 text-black" />
+            <span>Biomechanical Kinematics</span>
+          </div>
+          <p className="text-zinc-700">{part.mechanicalRole}</p>
+        </div>
+      )}
+
+      {/* Neurovascular & Clinical Supply Grid */}
+      {(part.innervation || part.bloodSupply) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+          {part.innervation && (
+            <div className="p-2.5 rounded border border-amber-200 bg-amber-50/50">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900 uppercase tracking-wider text-[10px] mb-0.5">
+                <Zap className="w-3 h-3 text-amber-700" />
+                <span>Innervation</span>
+              </div>
+              <p className="text-amber-950 font-medium text-[11px] leading-snug">{part.innervation}</p>
+            </div>
+          )}
+          {part.bloodSupply && (
+            <div className="p-2.5 rounded border border-rose-200 bg-rose-50/50">
+              <div className="flex items-center gap-1.5 font-bold text-rose-900 uppercase tracking-wider text-[10px] mb-0.5">
+                <Activity className="w-3 h-3 text-rose-700" />
+                <span>Vascular Supply</span>
+              </div>
+              <p className="text-rose-950 font-medium text-[11px] leading-snug">{part.bloodSupply}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Common Pathology */}
+      {part.commonPathology && (
+        <div className="p-2.5 rounded border border-red-200 bg-red-50/40 text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-red-900 uppercase tracking-wider text-[10px] mb-0.5">
+            <ShieldAlert className="w-3.5 h-3.5 text-red-700" />
+            <span>Clinical Pathology</span>
+          </div>
+          <p className="text-red-950 font-medium text-[11px] leading-relaxed">{part.commonPathology}</p>
+        </div>
+      )}
+
       {/* USMLE High-Yield Fact */}
       <div className="p-3 rounded border border-zinc-200 bg-zinc-50">
         <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-900 uppercase tracking-wider mb-1">

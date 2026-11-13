@@ -28,6 +28,7 @@ import {
   Film,
 } from 'lucide-react';
 import { VideoStoryboard, VideoScene, VisualCallout, CanvasVideoRecorder } from '../utils/videoExplanationEngine';
+import { createSafeWebGLRenderer } from '../utils/webglSafe';
 
 interface VisualVideoPlayerProps {
   storyboard: VideoStoryboard;
@@ -62,9 +63,12 @@ export const VisualVideoPlayer: React.FC<VisualVideoPlayerProps> = ({
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const fallbackCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [is2DFallback, setIs2DFallback] = useState(false);
   const partsMeshMap = useRef<Map<string, THREE.Mesh>>(new Map());
   const animationFrameId = useRef<number | null>(null);
-  const clockRef = useRef<THREE.Clock>(new THREE.Clock());
+  const lastTimeRef = useRef<number>(typeof performance !== 'undefined' ? performance.now() : Date.now());
+  const startTimeRef = useRef<number>(typeof performance !== 'undefined' ? performance.now() : Date.now());
 
   // Speech synthesis reference
   const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -108,14 +112,34 @@ export const VisualVideoPlayer: React.FC<VisualVideoPlayerProps> = ({
     camera.position.set(0, 1.35, 3.8);
     cameraRef.current = camera;
 
-    let renderer: THREE.WebGLRenderer;
-    try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    } catch {
-      renderer = new THREE.WebGLRenderer({ antialias: false });
+    const safe = createSafeWebGLRenderer();
+    if (!safe.renderer) {
+      // Render smooth 2D HTML5 anatomical canvas fallback instead of throwing uncaught WebGL errors
+      const canvas2d = document.createElement('canvas');
+      canvas2d.width = width;
+      canvas2d.height = height;
+      canvas2d.className = 'w-full h-full block';
+      mount.innerHTML = '';
+      mount.appendChild(canvas2d);
+      fallbackCanvasRef.current = canvas2d;
+      setIs2DFallback(true);
+
+      const onResize2D = () => {
+        if (!mount || !fallbackCanvasRef.current) return;
+        fallbackCanvasRef.current.width = mount.clientWidth || 800;
+        fallbackCanvasRef.current.height = mount.clientHeight || 450;
+      };
+      window.addEventListener('resize', onResize2D);
+      return () => {
+        window.removeEventListener('resize', onResize2D);
+        fallbackCanvasRef.current = null;
+      };
     }
+
+    setIs2DFallback(false);
+    const renderer = safe.renderer;
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(safe.isSoftware ? 1 : Math.min(window.devicePixelRatio || 1, 2));
     mount.innerHTML = '';
     mount.appendChild(renderer.domElement);
     rendererRef.current = renderer;
@@ -261,13 +285,87 @@ export const VisualVideoPlayer: React.FC<VisualVideoPlayerProps> = ({
     return () => {
       window.removeEventListener('resize', handleResize);
       if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+      scene.traverse((obj) => {
+        if ((obj as THREE.Mesh).isMesh) {
+          const m = obj as THREE.Mesh;
+          m.geometry?.dispose();
+          const mats = Array.isArray(m.material) ? m.material : [m.material];
+          mats.forEach((mat) => mat?.dispose());
+        }
+      });
       if (renderer) renderer.dispose();
+      rendererRef.current = null;
       scene.clear();
     };
   }, []);
 
-  // 2. Continuous 3D Animation & Camera Choreography Loop
+  // 2. Continuous 3D or 2D Fallback Animation & Camera Choreography Loop
   useEffect(() => {
+    if (is2DFallback) {
+      const canvas2d = fallbackCanvasRef.current;
+      if (!canvas2d) return;
+      const ctx = canvas2d.getContext('2d');
+      if (!ctx) return;
+
+      const draw2DFrame = () => {
+        animationFrameId.current = requestAnimationFrame(draw2DFrame);
+        const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        const elapsed = (now - startTimeRef.current) / 1000;
+        const w = canvas2d.width || 800;
+        const h = canvas2d.height || 450;
+        const cx = w / 2;
+        const cy = h / 2;
+        const exp = (currentScene.explosionLevel || 0) * 55;
+
+        ctx.fillStyle = '#090d16';
+        ctx.fillRect(0, 0, w, h);
+
+        // Cranium
+        ctx.fillStyle = currentScene.focusedPartIds.includes('calvarium') ? '#38bdf8' : '#cbd5e1';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - 130 - exp * 0.4, 24, 28, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Spine
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(cx - 6, cy - 100, 12, 140);
+
+        // Lungs
+        const breath = 1 + Math.sin(elapsed * 2.1) * 0.04;
+        ctx.fillStyle = 'rgba(14, 165, 233, 0.55)';
+        ctx.beginPath();
+        ctx.ellipse(cx - 42 - exp * 0.6, cy - 35, 26 * breath, 52 * breath, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx + 42 + exp * 0.6, cy - 35, 26 * breath, 52 * breath, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Beating Heart
+        const beat = 1 + Math.sin(elapsed * 7.5) * 0.08;
+        ctx.fillStyle = '#e11d48';
+        ctx.beginPath();
+        ctx.arc(cx + 8, cy - 35, 20 * beat, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Aorta arc
+        ctx.strokeStyle = '#ff0044';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(cx + 4, cy - 55, 16, Math.PI, 0);
+        ctx.lineTo(cx + 20, cy + 45);
+        ctx.stroke();
+
+        // Kidneys
+        ctx.fillStyle = '#9a3412';
+        ctx.beginPath();
+        ctx.ellipse(cx - 28, cy + 40 + exp * 0.2, 11, 18, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx + 28, cy + 40 + exp * 0.2, 11, 18, 0, 0, Math.PI * 2);
+        ctx.fill();
+      };
+      draw2DFrame();
+      return () => {
+        if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+      };
+    }
+
     const scene = sceneRef.current;
     const camera = cameraRef.current;
     const renderer = rendererRef.current;
@@ -286,8 +384,10 @@ export const VisualVideoPlayer: React.FC<VisualVideoPlayerProps> = ({
 
     const animate = () => {
       animationFrameId.current = requestAnimationFrame(animate);
-      const delta = clockRef.current.getDelta();
-      const elapsed = clockRef.current.getElapsedTime();
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const delta = Math.min((now - lastTimeRef.current) / 1000, 0.1);
+      lastTimeRef.current = now;
+      const elapsed = (now - startTimeRef.current) / 1000;
 
       // Smooth camera interpolation
       if (cameraMode !== 'orbit') {
@@ -338,7 +438,7 @@ export const VisualVideoPlayer: React.FC<VisualVideoPlayerProps> = ({
     return () => {
       if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
     };
-  }, [currentSceneIndex, cameraMode]);
+  }, [currentSceneIndex, cameraMode, is2DFallback]);
 
   // 3. Playback Clock & Voiceover Synchronization
   useEffect(() => {
@@ -412,7 +512,7 @@ export const VisualVideoPlayer: React.FC<VisualVideoPlayerProps> = ({
   };
 
   const handleToggleRecord = async () => {
-    const canvas = rendererRef.current?.domElement;
+    const canvas = rendererRef.current?.domElement || fallbackCanvasRef.current;
     if (!canvas) return;
 
     if (!isRecording) {
@@ -477,7 +577,7 @@ export const VisualVideoPlayer: React.FC<VisualVideoPlayerProps> = ({
       }`}
     >
       {/* Top Header Bar (YouTube Style) */}
-      <div className="px-4 py-3 bg-zinc-950/90 border-b border-zinc-800 flex items-center justify-between gap-3 z-10 backdrop-blur-md">
+      <div className="px-4 py-3 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between gap-3 z-10">
         <div className="flex items-center gap-2.5">
           <div className="w-6 h-6 rounded bg-rose-600 flex items-center justify-center font-bold text-xs text-white">
             3D
@@ -532,11 +632,11 @@ export const VisualVideoPlayer: React.FC<VisualVideoPlayerProps> = ({
 
         {/* Live HUD Floating Telemetry Badge (Top Left) */}
         <div className="absolute top-4 left-4 z-20 pointer-events-none flex flex-col gap-2">
-          <div className="bg-zinc-950/80 backdrop-blur-md border border-zinc-700/80 rounded-xl p-3 shadow-lg max-w-xs space-y-1.5">
+          <div className="bg-zinc-950/90 border border-zinc-700/80 rounded-xl p-3 shadow-lg max-w-xs space-y-1.5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
-                <Activity className="w-3 h-3 text-rose-500 animate-pulse" />
-                <span>Physiological Telemetry</span>
+                <Activity className="w-3 h-3 text-rose-500" />
+                <span>{is2DFallback ? '2D Anatomical Stage' : 'Physiological Telemetry'}</span>
               </span>
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
             </div>
@@ -567,7 +667,7 @@ export const VisualVideoPlayer: React.FC<VisualVideoPlayerProps> = ({
                   onJumpToQuote(callout.evidenceQuote);
                 }
               }}
-              className="bg-zinc-950/85 backdrop-blur-md border border-zinc-700/90 hover:border-white rounded-xl p-3 shadow-xl transition-all cursor-pointer group pointer-events-auto"
+              className="bg-zinc-950/90 border border-zinc-700/90 hover:border-white rounded-xl p-3 shadow-xl transition-all cursor-pointer group pointer-events-auto"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-1.5 font-bold text-xs text-white">
@@ -601,7 +701,7 @@ export const VisualVideoPlayer: React.FC<VisualVideoPlayerProps> = ({
         {/* Subtitles & Closed Captions Bar (Bottom of Stage) */}
         {activeSubtitle && (
           <div className="absolute bottom-6 inset-x-8 z-20 flex justify-center pointer-events-none">
-            <div className="bg-black/90 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 text-center max-w-2xl shadow-2xl">
+            <div className="bg-black/90 px-4 py-2 rounded-xl border border-white/20 text-center max-w-2xl shadow-2xl">
               <p className="text-xs sm:text-sm font-medium text-white tracking-wide leading-snug">
                 {activeSubtitle.text}
               </p>

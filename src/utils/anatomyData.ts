@@ -21,6 +21,8 @@ export interface AnatomyPartDef {
   bloodSupply?: string;
   commonPathology?: string;
   highYieldFact: string;
+  wikipediaUrl?: string;
+  isOfficialTA?: boolean;
 }
 
 export interface AnatomySystem {
